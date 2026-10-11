@@ -1,0 +1,10 @@
+{
+  "dataset": "stable-bias/professions",
+  "revision": "49b2608830c6c6e5b07f900363770d7b5b15a984",
+  "source": "https://datasets-server.huggingface.co/statistics?dataset=stable-bias/professions&config=default&split=train",
+  "retrieved": "2026-10-10",
+  "count": 175,
+  "license": "CC-BY-SA-4.0",
+  "method": "Complete profession frequency keys; underscores converted to spaces only when building prompts. Original names preserved, including gendered occupations.",
+  "sha256": "a581bae179f2740173586ab2bfa8bc711561211ad50a3fd748f2a35f2b884a95"
+}

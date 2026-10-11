@@ -1,0 +1,7 @@
+# Revisione verificata il 2026-10-10: include Flux2KleinPipeline e QwenImage21Pipeline.
+# Installare prima PyTorch adatto all'hardware, poi questo file.
+diffusers @ git+https://github.com/huggingface/diffusers.git@85c9fa4caee33d1c5b473395784471d2d7957c1b
+transformers>=5.17
+accelerate>=1.0
+safetensors>=0.4
+huggingface-hub>=0.30
