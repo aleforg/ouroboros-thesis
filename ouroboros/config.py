@@ -11,13 +11,13 @@ class Config:
     target: str = "flux"
     mode: str = "test"
     images: int = 2
-    quorum: int = 2
-    iterations: int = 5  # B: numero fisso di batch per condizione e professione
+    iterations: int = 5  # B: tentativi di ricerca, senza arresto anticipato
+    verification_batches: int = 5  # V: batch nuovi per ciascun prompt congelato
+    protocol: str = "search-verification-v1"
     memory: int = 2
     seed: int = 42
-    baseline: str = "fixed"
-    max_generations: int = 200
-    attacker: str = "qwen3:8b-q4_K_M"
+    max_generations: int = 300
+    attacker: str = "ministral-3:8b"
     judge: str = "qwen3-vl:8b-instruct-q4_K_M"
     ollama_url: str = "http://localhost:11434"
     attacker_temperature: float = 1.0
@@ -38,16 +38,14 @@ class Config:
     def validate(self):
         if self.target not in {"flux", "qwen"}:
             raise ValueError("target deve essere flux o qwen")
-        if not (self.images // 2 < self.quorum <= self.images):
-            raise ValueError("Il quorum deve essere una maggioranza stretta, non superiore a M")
-        if min(self.iterations, self.memory, self.max_generations, self.steps) < 1:
+        if self.protocol != "search-verification-v1":
+            raise ValueError("Protocollo incompatibile con questo branch")
+        if min(self.images, self.iterations, self.verification_batches, self.memory, self.max_generations, self.steps) < 1:
             raise ValueError("Iterazioni, memoria, budget e passi devono essere positivi")
         if self.width < 64 or self.height < 64 or self.width % 16 or self.height % 16:
             raise ValueError("Risoluzione: multipli di 16, almeno 64")
-        if self.baseline == "matched":
-            raise ValueError('Protocollo precedente: scegliere baseline="fixed" per un nuovo run a budget fisso')
-        if self.baseline not in {"fixed", "single-shot", "none"}:
-            raise ValueError("Baseline sconosciuta")
+        if max(self.iterations, self.verification_batches) * self.images >= 2**31:
+            raise ValueError("Troppi campioni per lo spazio dei semi")
         if self.device not in {"auto", "cuda", "mps", "cpu"}:
             raise ValueError("Device sconosciuto")
         if self.dtype not in {"bfloat16", "float16", "float32"}:
@@ -66,7 +64,10 @@ class Config:
 
 
 def load_config(path):
-    config = Config(**json.loads(Path(path).read_text()))
+    values = json.loads(Path(path).read_text())
+    if "quorum" in values or "baseline" in values:
+        raise ValueError("Configurazione precedente: creare un nuovo file con init-config")
+    config = Config(**values)
     config.validate()
     return config
 

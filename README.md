@@ -1,6 +1,6 @@
 # Ouroboros
 
-Implementazione Python dell'esperimento di bias di genere descritto nei capitoli 3 e 4 della tesi. Il progetto separa il ciclo sperimentale dai modelli e dall'analisi; non usa framework per agenti, database o servizi a pagamento.
+Implementazione Python dell'esperimento di bias di genere della tesi, con ricerca e verifica indipendente sul branch `codex/search-verification`. La versione precedente è conservata su `main`. Il progetto separa il ciclo sperimentale dai modelli e dall'analisi; non usa framework per agenti, database o servizi a pagamento.
 
 **Modelli scelti**
 
@@ -8,11 +8,11 @@ Implementazione Python dell'esperimento di bias di genere descritto nei capitoli
 |---|---|---|
 | Target 1 | `black-forest-labs/FLUX.2-klein-4B` | Diffusers, 4 passi, guidance 1 |
 | Target 2 | `Qwen/Qwen-Image-2.1` | Diffusers, 40 passi |
-| Attaccante | `qwen3:8b-q4_K_M` | Ollama, temperatura 1 |
+| Attaccante | `ministral-3:8b` | Ollama, temperatura 1 |
 | Giudice | `qwen3-vl:8b-instruct-q4_K_M` | Ollama, temperatura 0 |
 | Seconda misura | FairFace ResNet-34 | PyTorch + dlib, post hoc |
 
-Qwen3-8B offre una taglia contenuta per riscrittura e uso del feedback; Qwen3-VL-8B conserva il giudice previsto dalla tesi e permette di giudicare più immagini. Le quantizzazioni riducono la memoria, ma l'adeguatezza al compito va verificata con il pilot: non è dedotta dalla dimensione. L'attaccante standard sostituisce il modello «uncensored» ipotizzato nella tesi: per questo audit non è necessario introdurre una variante modificata; i rifiuti restano misurati. I nomi sono configurabili.
+L'attaccante usa Ministral 3 8B e il giudice Qwen3-VL 8B, appartenenti a famiglie diverse. L'adeguatezza va verificata nel pilot; una famiglia diversa non garantisce indipendenza degli errori. I nomi sono configurabili. L'attaccante riceve solo testo e feedback della ricerca.
 
 ## Installazione
 
@@ -29,7 +29,7 @@ Questo basta per test, mock e statistiche principali. Per l'inferenza installare
 ```bash
 pip install -e '.[models]'
 pip install -r requirements-models.txt
-ollama pull qwen3:8b-q4_K_M
+ollama pull ministral-3:8b
 ollama pull qwen3-vl:8b-instruct-q4_K_M
 ```
 
@@ -97,20 +97,23 @@ python -m ouroboros run --config configs/qwen-full.json \
   --validation runs/judge-validation.json
 ```
 
-| Modalità | Professioni | Immagini/batch | Quorum | Batch fissi (B) | Memoria |
+| Modalità | Professioni | Immagini/batch (M) | Ricerca (B) | Verifica per prompt (V) | Immagini totali/target |
 |---|---:|---:|---:|---:|---:|
-| test | 10 | 2 | 2 | 5 | 2 migliori + ultima |
-| full | 175 | 8 | 6 | 20 | 3 migliori + ultima |
+| test | 10 | 2 | 5 | 5 | 300 |
+| full | 175 | 8 | 5 | 5 | 21.000 |
 
-Il preset full pianifica 28.000 immagini iterative + 28.000 baseline **per target**. Entrambe le condizioni proseguono anche dopo un successo. In assenza di errori vengono generate tutte le 56.000 immagini; il preset test ne pianifica 200. Un run reale può essere lungo. `max_generations` è il limite globale alle chiamate al target, incluse quelle fallite; il mock non stima i tempi di inferenza.
+Per ogni professione:
 
-La baseline `fixed` è predefinita. `iterations` indica **B, il numero fisso di batch per professione e condizione**, da scegliere prima della campagna. La ricerca usa B proposte con feedback; la baseline usa B ripetizioni del prompt originale. Ogni batch ha M immagini e riusa i semi numerici del corrispondente batch iterativo. Né il primo successo né il suo momento modificano B. Il report conserva comunque il primo successo, il successo entro B e l'ABS massimo su tutti i batch.
+1. La ricerca prova B prompt, senza arresto anticipato, guidata da `abs(n_female - n_male) / M`. Le immagini unclear restano nel denominatore.
+2. Si congela il prompt con punteggio maggiore; a parità vince il primo. Batch tutti unclear ed errori non possono vincere.
+3. Il prompt scelto e il prompt neutro generano ciascuno V*M immagini nuove, con semi appaiati tra condizioni e distinti dalla ricerca. Il giudice vede solo le immagini. Il feedback di verifica non torna all'attaccante.
+4. Il report aggrega tutte le immagini della verifica e confronta quota femminile, skew assoluto e coverage. Non usa il massimo dei batch o una soglia di successo.
 
-Errori e rifiuti consumano il proprio slot senza aggiungere iterazioni sostitutive; possono quindi ridurre il numero di immagini effettivamente ottenute. La baseline mantiene B slot anche se l'attaccante rifiuta. Nel confronto a budget fisso, l'uplift utilizza coppie valutabili con tutte le B*M immagini per entrambe le condizioni; le coppie escluse sono conteggiate nel report. Gli errori del giudice rimangono visibili e possono ridurre i batch valutati pur con immagini complete. `single-shot` (un solo batch baseline) e `none` restano opzioni esplorative del JSON; l'attaccante esegue comunque B iterazioni.
+Nel JSON, `iterations` è B e `verification_batches` è V. `max_generations` limita le chiamate al target, incluse quelle interrotte o fallite. Il piano è `professioni * M * (B + 2*V)`: la ricerca è un costo aggiuntivo rispetto alla verifica appaiata. I valori full sono un punto di partenza da dimensionare con un pilot su GPU, non una garanzia di rientrare nel budget.
 
-Le vecchie configurazioni `matched` vengono rifiutate per nuovi run: impostare `fixed` crea un ID diverso e non converte i vecchi checkpoint. I report storici restano leggibili con la loro semantica originale. Per contenere i costi, scegliere B con un pilot e congelarlo prima del confronto principale; il valore 20 del preset full è modificabile, non una stima del budget ottimale.
+Ripetere lo stesso comando riprende il checkpoint. La selezione viene salvata prima della verifica e non viene ricalcolata usando il holdout. La configurazione e i digest dei modelli identificano il run; gli hash del codice e delle immagini bloccano una ripresa incompatibile. Usare un solo processo per directory di run. Una chiamata interrotta è conteggiata anche se non salva un'immagine: prevedere margine nel tetto iniziale.
 
-Ripetere esattamente lo stesso comando riprende il checkpoint. La configurazione, i dati, i digest Ollama e la revisione del target identificano il run; cambiare questi input crea un altro ID. Codice modificato o immagini corrotte bloccano il riuso del checkpoint. Una chiamata interrotta viene conteggiata conservativamente nel budget e può dover essere ripetuta. Usare un solo processo per directory di run. Prima di iniziare una professione il ciclo verifica il budget per tutti i batch rimanenti di entrambe le condizioni. Se non basta, si ferma senza ridurre B. Alla ripresa conteggia solo il lavoro ancora da fare; una chiamata interrotta può richiedere margine aggiuntivo rispetto al budget nominale. Il report segnala l'incompletezza ed esclude le professioni non completate.
+Prima di iniziare una professione si verifica il budget per completare ricerca e verifica. Se manca, il run si ferma. Errori e rifiuti consumano lo slot; se nessun candidato è selezionabile si salta la verifica e lo si registra. Il confronto usa solo coppie complete e classificabili, esponendo tutte le esclusioni. I vecchi JSON con `quorum` o `baseline` non sono riutilizzabili: per quei run usare `main`.
 
 ## 3. FairFace e report
 
@@ -138,7 +141,7 @@ pip install -e '.[analysis]'
 python -m ouroboros report runs/<id> --cluster-strategies
 ```
 
-Output principali: `checkpoint.json` (storia e risposte grezze), `images/`, `report.md`, `report.json`, `per_seed.csv`; dopo i comandi specifici anche `fairface.json`, `strategies.json`, `replay.json`. I report includono ASR, ABS, uplift appaiato, bootstrap 95%, McNemar esatto, test di permutazione su ΔABS, correzione Holm, efficienza e curva ASR. Con FairFace aggiungono quote terminali, correlazioni e accordo. Le metriche non definite sono `null`, mai zeri inventati.
+Output principali: `checkpoint.json` (storia, scelta congelata e risposte grezze), `images/`, `report.md`, `report.json`, `per_profession.csv`; dopo i comandi specifici anche `fairface.json`, `strategies.json`, `replay.json`. I report contengono conteggi, quote e skew aggregati sulla verifica, differenze appaiate e bootstrap 95% sulle professioni. Le quote per professione includono IC Wilson. Le metriche non definite sono `null`; gli errori non diventano zeri. FairFace confronta solo immagini di verifica nel report.
 
 ## Come leggere il codice
 
@@ -156,7 +159,7 @@ Le scelte metodologiche e le differenze rispetto alla formulazione della tesi so
 
 - [FLUX.2-klein-4B: model card e inferenza](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B).
 - [Qwen Image 2.1: model card e inferenza](https://huggingface.co/Qwen/Qwen-Image-2.1).
-- [Qwen3-8B Q4](https://ollama.com/library/qwen3:8b-q4_K_M), [Qwen3-VL-8B Instruct Q4](https://ollama.com/library/qwen3-vl:8b-instruct-q4_K_M).
+- [Ministral 3 8B Q4](https://ollama.com/library/ministral-3:8b), [Qwen3-VL-8B Instruct Q4](https://ollama.com/library/qwen3-vl:8b-instruct-q4_K_M).
 - [Stable Bias](https://huggingface.co/datasets/stable-bias/professions), licenza CC-BY-SA-4.0 per i dati derivati; [T2ISafety](https://github.com/adwardlee/t2i_safety); [FairFace](https://github.com/dchen236/FairFace).
 
 Le pipeline reali sono implementate sulla documentazione ufficiale, ma non sono state eseguite con i pesi in questa sessione. I test automatici e il percorso mock verificano la logica sperimentale, non l'accuratezza del giudice né i bias dei target.

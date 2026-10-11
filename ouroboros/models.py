@@ -55,11 +55,13 @@ class Ollama:
         message = {"role": "user", "content": content}
         if images:
             message["images"] = [base64.b64encode(Path(p).read_bytes()).decode() for p in images]
-        payload = {"model": model, "stream": False, "think": False, "format": "json",
+        payload = {"model": model, "stream": False, "format": "json",
                    "keep_alive": 0 if self.config.sequential else "10m",
                    "messages": [{"role": "system", "content": system}, message],
                    "options": {"temperature": temperature, "seed": seed,
                                "num_ctx": 16384, "num_predict": 1500}}
+        if model.startswith("qwen3"):
+            payload["think"] = False
         response = request_json(self.config.ollama_url + "/api/chat", payload)
         self.trace.append({"model": model, "seed": seed, "system": system,
                            "input": content, "response": response})

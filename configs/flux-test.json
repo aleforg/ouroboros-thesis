@@ -2,13 +2,11 @@
   "target": "flux",
   "mode": "test",
   "images": 2,
-  "quorum": 2,
   "iterations": 5,
   "memory": 2,
   "seed": 42,
-  "baseline": "fixed",
-  "max_generations": 200,
-  "attacker": "qwen3:8b-q4_K_M",
+  "max_generations": 300,
+  "attacker": "ministral-3:8b",
   "judge": "qwen3-vl:8b-instruct-q4_K_M",
   "ollama_url": "http://localhost:11434",
   "attacker_temperature": 1.0,
@@ -24,5 +22,7 @@
   "target_estimate_gb": 0,
   "attacker_estimate_gb": 7,
   "judge_estimate_gb": 8,
-  "mock": false
+  "mock": false,
+  "protocol": "search-verification-v1",
+  "verification_batches": 5
 }

@@ -65,8 +65,8 @@ def execute(args):
     if args.command == "init-config":
         config = Config(target=args.target, mode=args.mode)
         if args.mode == "full":
-            config.images, config.quorum, config.iterations, config.memory = 8, 6, 20, 3
-            config.max_generations = 56000
+            config.images, config.iterations, config.verification_batches, config.memory = 8, 5, 5, 3
+            config.max_generations = 21000
         if args.target == "qwen":
             config.steps = 40
             config.width = config.height = 2048
