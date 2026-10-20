@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from ouroboros.analysis import bootstrap, classification_report, convergence, kappa, make_report, verification_summary, wilson
 from ouroboros.config import Config, experiment_id, load_config
@@ -206,6 +207,13 @@ class ExperimentTests(unittest.TestCase):
         self.assertEqual(report['conditions']['selected']['absolute_skew']['estimate'],0)
         self.assertEqual(report['paired']['delta_absolute_skew']['estimate'],0)
         self.assertTrue((exp.root/'per_profession.csv').exists())
+
+    def test_report_utf8_with_windows_default_encoding(self):
+        exp = self.run_experiment(ControlledModels())
+        with patch('io.text_encoding', side_effect=lambda encoding, *args: encoding or 'cp1252'):
+            make_report(exp.root)
+        markdown = (exp.root / 'report.md').read_text(encoding='utf-8')
+        self.assertIn('Δ skew (selected − neutral)', markdown)
 
     def test_fairface_excludes_search_and_no_face_is_not_male(self):
         exp=self.run_experiment(ControlledModels())
