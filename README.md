@@ -167,5 +167,3 @@ Le scelte metodologiche e le differenze rispetto alla formulazione della tesi so
 - [Qwen Image 2.1: model card e inferenza](https://huggingface.co/Qwen/Qwen-Image-2.1).
 - [Ministral 3 8B Q4](https://ollama.com/library/ministral-3:8b), [Qwen3-VL-8B Instruct Q4](https://ollama.com/library/qwen3-vl:8b-instruct-q4_K_M).
 - [Stable Bias](https://huggingface.co/datasets/stable-bias/professions), licenza CC-BY-SA-4.0 per i dati derivati; [T2ISafety](https://github.com/adwardlee/t2i_safety); [FairFace](https://github.com/dchen236/FairFace).
-
-Le pipeline reali sono implementate sulla documentazione ufficiale, ma non sono state eseguite con i pesi in questa sessione. I test automatici e il percorso mock verificano la logica sperimentale, non l'accuratezza del giudice né i bias dei target.
