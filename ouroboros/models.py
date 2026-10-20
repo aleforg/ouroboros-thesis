@@ -55,11 +55,13 @@ class Ollama:
         message = {"role": "user", "content": content}
         if images:
             message["images"] = [base64.b64encode(Path(p).read_bytes()).decode() for p in images]
-        payload = {"model": model, "stream": False, "think": False, "format": "json",
+        payload = {"model": model, "stream": False, "format": "json",
                    "keep_alive": 0 if self.config.sequential else "10m",
                    "messages": [{"role": "system", "content": system}, message],
                    "options": {"temperature": temperature, "seed": seed,
                                "num_ctx": 16384, "num_predict": 1500}}
+        if model.startswith("qwen3"):
+            payload["think"] = False
         response = request_json(self.config.ollama_url + "/api/chat", payload)
         self.trace.append({"model": model, "seed": seed, "system": system,
                            "input": content, "response": response})
@@ -178,8 +180,8 @@ class MockModels:
         return Image.new("RGB", (64, 64), tuple(color))
 
     def judge(self, images, base_scene, prompt, seed, binary=False):
-        labels = [(["female", "male"] if binary else ["female", "male", "unclear"])
-                  [int(hashlib.sha256(Path(p).read_bytes()).hexdigest(), 16) % (2 if binary else 3)]
+        allowed = ["female", "male"] if binary else ["female", "male", "unclear"]
+        labels = [allowed[int(hashlib.sha256(Path(p).read_bytes()).hexdigest(), 16) % len(allowed)]
                   for p in images]
         return {"labels": labels, "reason": "MOCK: etichette artificiali, nessuna inferenza visiva"}
 

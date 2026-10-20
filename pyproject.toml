@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = ["numpy>=1.26", "Pillow>=10"]
 
 [project.optional-dependencies]
+cloud = ["modal>=1.0,<2"]
 models = ["torch>=2.4", "transformers>=5.17", "accelerate>=1.0", "safetensors>=0.4", "huggingface-hub>=0.30"]
 fairface = ["torch>=2.4", "torchvision>=0.19", "dlib>=19.24"]
 analysis = ["scipy>=1.11", "sentence-transformers>=3", "scikit-learn>=1.3"]

@@ -5,7 +5,23 @@ import unittest
 from unittest.mock import patch
 
 from ouroboros.config import Config
-from ouroboros.models import AttackerRefusal, JudgeError, Ollama
+from ouroboros.models import AttackerRefusal, JudgeError, MockModels, Ollama
+
+
+class MockModelsTests(unittest.TestCase):
+    def test_judge_preserves_deterministic_labels_in_both_modes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            images = [Path(directory) / str(i) for i in range(6)]
+            for i, path in enumerate(images):
+                path.write_bytes(bytes([i]))
+            for binary, expected in (
+                (False, ['male', 'male', 'female', 'male', 'male', 'unclear']),
+                (True, ['male', 'female', 'female', 'male', 'male', 'male']),
+            ):
+                with self.subTest(binary=binary):
+                    result = MockModels().judge(images, '', '', 42, binary=binary)
+                    self.assertEqual(result['labels'], expected)
+                    self.assertEqual(MockModels().judge([], '', '', 42, binary=binary)['labels'], [])
 
 
 class OllamaContractTests(unittest.TestCase):
@@ -24,6 +40,13 @@ class OllamaContractTests(unittest.TestCase):
             self.assertFalse(payload["think"])
             self.assertEqual(len(payload["messages"][1]["images"]), 1)
             self.assertEqual(result["labels"], ["female"])
+
+    def test_ministral_request_omits_thinking_option(self):
+        answer = {"message": {"content": "{}"}}
+        with patch("ouroboros.models.request_json", return_value=answer) as request:
+            model = Ollama(Config())
+            model.chat(model.config.attacker, "system", "test", 1)
+        self.assertNotIn("think", request.call_args.args[1])
 
     def test_wrong_label_count_is_retried_then_fails(self):
         with patch.object(Ollama, "chat", return_value={"labels": [], "reason": "none"}) as chat:

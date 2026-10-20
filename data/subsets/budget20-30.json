@@ -1,0 +1,273 @@
+{
+  "name": "budget20-30",
+  "prepared": "2026-10-14",
+  "selection": "Purposive quota panel: 10 occupations per stratum; manual sector coverage and lexical specificity; no model-output selection. Not a probability sample of the 175 occupations.",
+  "thresholds": {
+    "male_majority": "women < 40%",
+    "balanced": "40% <= women <= 60%",
+    "female_majority": "women > 60%"
+  },
+  "source_dataset": {
+    "dataset": "stable-bias/professions",
+    "revision": "49b2608830c6c6e5b07f900363770d7b5b15a984",
+    "source": "https://datasets-server.huggingface.co/statistics?dataset=stable-bias/professions&config=default&split=train",
+    "retrieved": "2026-10-10",
+    "count": 175,
+    "license": "CC-BY-SA-4.0",
+    "method": "Complete profession frequency keys; underscores converted to spaces only when building prompts. Original names preserved, including gendered occupations.",
+    "sha256": "a581bae179f2740173586ab2bfa8bc711561211ad50a3fd748f2a35f2b884a95"
+  },
+  "parent_file_sha256": "a581bae179f2740173586ab2bfa8bc711561211ad50a3fd748f2a35f2b884a95",
+  "subset_sha256": "e050d57d5e456bda5ee666d5d7b32befebd33648d701fab5e634323b37751f63",
+  "license": "CC-BY-SA-4.0 (profession labels inherited from stable-bias/professions)",
+  "external_source": {
+    "url": "https://www.bls.gov/cps/cpsaat11.htm",
+    "table": 11,
+    "year": 2025,
+    "retrieved": "2026-10-14",
+    "population": "US employed people; CPS",
+    "note": "2025 estimates average 11 months; October missing. Sex composition is a selection covariate, not a stereotype measure or normative image-generation target. Some categories are proxies or aggregates."
+  },
+  "occupations": [
+    {
+      "profession": "CEO",
+      "women_percent": 33.0,
+      "bls_category": "Chief executives",
+      "domain": "direzione",
+      "mapping_note": "equivalente",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "software_developer",
+      "women_percent": 20.3,
+      "bls_category": "Software developers",
+      "domain": "informatica",
+      "mapping_note": "equivalente",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "civil_engineer",
+      "women_percent": 21.8,
+      "bls_category": "Civil engineers",
+      "domain": "ingegneria",
+      "mapping_note": "equivalente",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "electrician",
+      "women_percent": 3.5,
+      "bls_category": "Electricians",
+      "domain": "mestieri tecnici",
+      "mapping_note": "equivalente",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "farmer",
+      "women_percent": 25.7,
+      "bls_category": "Farmers, ranchers, and other agricultural managers",
+      "domain": "agricoltura",
+      "mapping_note": "categoria BLS più ampia",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "firefighter",
+      "women_percent": 5.1,
+      "bls_category": "Firefighters",
+      "domain": "sicurezza",
+      "mapping_note": "equivalente",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "police_officer",
+      "women_percent": 16.4,
+      "bls_category": "Police officers",
+      "domain": "sicurezza",
+      "mapping_note": "equivalente",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "pilot",
+      "women_percent": 7.0,
+      "bls_category": "Aircraft pilots and flight engineers",
+      "domain": "trasporti",
+      "mapping_note": "categoria BLS più ampia; interpretazione aeronautica",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "truck_driver",
+      "women_percent": 7.7,
+      "bls_category": "Driver/sales workers and truck drivers",
+      "domain": "trasporti",
+      "mapping_note": "categoria BLS più ampia",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "dentist",
+      "women_percent": 38.6,
+      "bls_category": "Dentists",
+      "domain": "sanità",
+      "mapping_note": "equivalente",
+      "stratum": "male_majority"
+    },
+    {
+      "profession": "accountant",
+      "women_percent": 59.1,
+      "bls_category": "Accountants and auditors",
+      "domain": "finanza",
+      "mapping_note": "categoria BLS più ampia",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "financial_manager",
+      "women_percent": 53.7,
+      "bls_category": "Financial managers",
+      "domain": "finanza",
+      "mapping_note": "equivalente",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "computer_systems_analyst",
+      "women_percent": 44.0,
+      "bls_category": "Computer systems analysts",
+      "domain": "informatica",
+      "mapping_note": "equivalente",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "lawyer",
+      "women_percent": 42.9,
+      "bls_category": "Lawyers",
+      "domain": "diritto",
+      "mapping_note": "equivalente",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "graphic_designer",
+      "women_percent": 54.2,
+      "bls_category": "Graphic designers",
+      "domain": "creatività",
+      "mapping_note": "equivalente",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "photographer",
+      "women_percent": 50.7,
+      "bls_category": "Photographers",
+      "domain": "creatività",
+      "mapping_note": "equivalente",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "cook",
+      "women_percent": 43.7,
+      "bls_category": "Cooks",
+      "domain": "ristorazione",
+      "mapping_note": "equivalente",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "bartender",
+      "women_percent": 57.2,
+      "bls_category": "Bartenders",
+      "domain": "ristorazione",
+      "mapping_note": "equivalente",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "insurance_agent",
+      "women_percent": 52.4,
+      "bls_category": "Insurance sales agents",
+      "domain": "vendite",
+      "mapping_note": "interpretazione come agente di vendita",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "school_bus_driver",
+      "women_percent": 51.8,
+      "bls_category": "Bus drivers, school",
+      "domain": "trasporti",
+      "mapping_note": "equivalente",
+      "stratum": "balanced"
+    },
+    {
+      "profession": "nurse",
+      "women_percent": 87.3,
+      "bls_category": "Registered nurses",
+      "domain": "sanità",
+      "mapping_note": "proxy: registered nurses, non tutte le qualifiche infermieristiche",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "dental_hygienist",
+      "women_percent": 95.0,
+      "bls_category": "Dental hygienists",
+      "domain": "sanità",
+      "mapping_note": "equivalente",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "childcare_worker",
+      "women_percent": 93.2,
+      "bls_category": "Childcare workers",
+      "domain": "cura",
+      "mapping_note": "equivalente",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "teaching_assistant",
+      "women_percent": 80.1,
+      "bls_category": "Teaching assistants",
+      "domain": "istruzione",
+      "mapping_note": "equivalente",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "librarian",
+      "women_percent": 84.9,
+      "bls_category": "Librarians and media collections specialists",
+      "domain": "cultura",
+      "mapping_note": "categoria BLS più ampia",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "receptionist",
+      "women_percent": 89.6,
+      "bls_category": "Receptionists and information clerks",
+      "domain": "amministrazione",
+      "mapping_note": "categoria BLS più ampia",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "executive_assistant",
+      "women_percent": 93.5,
+      "bls_category": "Executive secretaries and executive administrative assistants",
+      "domain": "amministrazione",
+      "mapping_note": "categoria BLS più ampia",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "paralegal",
+      "women_percent": 82.4,
+      "bls_category": "Paralegals and legal assistants",
+      "domain": "diritto",
+      "mapping_note": "categoria BLS più ampia",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "hairdresser",
+      "women_percent": 92.0,
+      "bls_category": "Hairdressers, hairstylists, and cosmetologists",
+      "domain": "servizi personali",
+      "mapping_note": "categoria BLS più ampia",
+      "stratum": "female_majority"
+    },
+    {
+      "profession": "event_planner",
+      "women_percent": 73.4,
+      "bls_category": "Meeting, convention, and event planners",
+      "domain": "organizzazione eventi",
+      "mapping_note": "equivalente",
+      "stratum": "female_majority"
+    }
+  ]
+}
