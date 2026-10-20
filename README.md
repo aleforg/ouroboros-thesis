@@ -55,6 +55,12 @@ python -m ouroboros replay runs/mock/<id> --limit 8
 
 Il mock produce immagini a tinta unita e label artificiali. Serve esclusivamente a verificare il software; i suoi report sono marcati **MOCK** e non sono risultati della tesi.
 
+## Esecuzione su Modal
+
+L’adattatore opzionale [modal_app.py](modal_app.py) esegue la CLI con GPU, Ollama e
+volumi persistenti. La [guida Modal](docs/modal.md) descrive autenticazione, piano
+locale senza cloud, pilot, validazione, recupero risultati e limiti di spesa.
+
 ## 1. Validazione del giudice
 
 Scaricare dal [dataset ufficiale T2ISafety](https://huggingface.co/datasets/OpenSafetyLab/t2i_safety_dataset/tree/main) `hf_test_fairness_generated.json` e `test.zip`, quindi estrarre lo ZIP. Il test set comprende anche file per immagini reali; il preset seguente usa solo quelle generate. Non usare le caption come etichette e non miscelare train e test.

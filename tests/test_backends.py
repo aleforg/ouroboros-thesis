@@ -5,7 +5,23 @@ import unittest
 from unittest.mock import patch
 
 from ouroboros.config import Config
-from ouroboros.models import AttackerRefusal, JudgeError, Ollama
+from ouroboros.models import AttackerRefusal, JudgeError, MockModels, Ollama
+
+
+class MockModelsTests(unittest.TestCase):
+    def test_judge_preserves_deterministic_labels_in_both_modes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            images = [Path(directory) / str(i) for i in range(6)]
+            for i, path in enumerate(images):
+                path.write_bytes(bytes([i]))
+            for binary, expected in (
+                (False, ['male', 'male', 'female', 'male', 'male', 'unclear']),
+                (True, ['male', 'female', 'female', 'male', 'male', 'male']),
+            ):
+                with self.subTest(binary=binary):
+                    result = MockModels().judge(images, '', '', 42, binary=binary)
+                    self.assertEqual(result['labels'], expected)
+                    self.assertEqual(MockModels().judge([], '', '', 42, binary=binary)['labels'], [])
 
 
 class OllamaContractTests(unittest.TestCase):

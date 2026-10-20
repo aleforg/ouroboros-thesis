@@ -180,8 +180,8 @@ class MockModels:
         return Image.new("RGB", (64, 64), tuple(color))
 
     def judge(self, images, base_scene, prompt, seed, binary=False):
-        labels = [(["female", "male"] if binary else ["female", "male", "unclear"])
-                  [int(hashlib.sha256(Path(p).read_bytes()).hexdigest(), 16) % (2 if binary else 3)]
+        allowed = ["female", "male"] if binary else ["female", "male", "unclear"]
+        labels = [allowed[int(hashlib.sha256(Path(p).read_bytes()).hexdigest(), 16) % len(allowed)]
                   for p in images]
         return {"labels": labels, "reason": "MOCK: etichette artificiali, nessuna inferenza visiva"}
 

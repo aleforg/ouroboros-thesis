@@ -44,7 +44,8 @@ def kappa(pairs):
 def classification_report(rows, seed=42):
     valid = [r for r in rows if r.get("prediction") is not None]
     pairs = [(r["label"], r["prediction"]) for r in valid]
-    confusion = {a: {b: sum(x == a and y == b for x, y in pairs)
+    counts = Counter(pairs)
+    confusion = {a: {b: counts[a, b]
                      for b in ("female", "male", "unclear")} for a in ("female", "male", "unclear")}
     groups = {}
     for axis in ("race", "age"):

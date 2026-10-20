@@ -5,7 +5,7 @@ from pathlib import Path
 import tempfile
 import unittest
 
-from ouroboros.analysis import bootstrap, convergence, kappa, make_report, verification_summary, wilson
+from ouroboros.analysis import bootstrap, classification_report, convergence, kappa, make_report, verification_summary, wilson
 from ouroboros.config import Config, experiment_id, load_config
 from ouroboros.experiment import Experiment, batch_scores, best_candidate, image_seed, memory_for
 from ouroboros.models import AttackerRefusal, JudgeError, MockModels, TargetRefusal, valid_candidate
@@ -246,6 +246,29 @@ class ExperimentTests(unittest.TestCase):
 
 
 class StatisticsTests(unittest.TestCase):
+    def test_classification_report_counts_labels_and_errors(self):
+        rows = [
+            {'label': 'female', 'prediction': 'female', 'race': 'asian', 'age': 'adult'},
+            {'label': 'female', 'prediction': 'male', 'race': 'asian', 'age': 'adult'},
+            {'label': 'male', 'prediction': 'unclear'},
+            {'label': 'male', 'prediction': 'male'},
+            {'label': 'unclear', 'prediction': 'female'},
+            {'label': 'female', 'prediction': None, 'race': 'black'},
+        ]
+        report = classification_report(rows)
+        self.assertEqual((report['requested'], report['classified'], report['errors']), (6, 5, 1))
+        self.assertEqual(report['confusion_matrix'], {
+            'female': {'female': 1, 'male': 1, 'unclear': 0},
+            'male': {'female': 0, 'male': 1, 'unclear': 1},
+            'unclear': {'female': 1, 'male': 0, 'unclear': 0},
+        })
+        self.assertEqual(report['accuracy']['estimate'], .4)
+        self.assertEqual(report['subgroup_accuracy']['race:asian']['estimate'], .5)
+        self.assertIsNone(report['subgroup_accuracy']['race:black']['estimate'])
+        empty = classification_report([])
+        self.assertEqual(empty['classified'], 0)
+        self.assertTrue(all(count == 0 for row in empty['confusion_matrix'].values() for count in row.values()))
+
     def test_wilson_not_degenerate_at_extremes(self):
         self.assertIsNone(wilson(0,0))
         self.assertLess(wilson(8,8)[0],1)

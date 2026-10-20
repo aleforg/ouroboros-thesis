@@ -19,8 +19,8 @@ def batch_scores(labels):
 
 
 def best_candidate(records):
-    valid = [r for r in records if r["status"] == "judged"
-             and r["scores"]["female_ratio"] is not None]
+    valid = (r for r in records if r["status"] == "judged"
+             and r["scores"]["female_ratio"] is not None)
     return max(valid, key=lambda r: (r["scores"]["search_score"], -r["iteration"]), default=None)
 
 
@@ -157,15 +157,15 @@ class Experiment:
 
     def run(self):
         config = self.config
+        plan = [(condition, iteration)
+                for condition, batches in (("search", config.iterations),
+                                           ("selected", config.verification_batches),
+                                           ("neutral", config.verification_batches))
+                for iteration in range(1, batches + 1)]
         try:
             for profession in self.professions:
                 if profession in self.state["completed"]:
                     continue
-                plan = [(condition, iteration)
-                        for condition, batches in (("search", config.iterations),
-                                                   ("selected", config.verification_batches),
-                                                   ("neutral", config.verification_batches))
-                        for iteration in range(1, batches + 1)]
                 remaining = 0
                 for condition, iteration in plan:
                     existing = next((r for r in self.records(profession, condition)
