@@ -41,6 +41,18 @@ class OllamaContractTests(unittest.TestCase):
             self.assertEqual(len(payload["messages"][1]["images"]), 1)
             self.assertEqual(result["labels"], ["female"])
 
+    def test_gemma4_requests_disable_thinking(self):
+        for name in ("gemma4:e2b-it-qat", "gemma4:e4b-it-qat", "gemma4:12b-it-qat"):
+            with self.subTest(model=name):
+                answer = {"message": {"content": "{}"}}
+                with patch("ouroboros.models.request_json", return_value=answer) as request:
+                    result = Ollama(Config()).chat(name, "system", "test", 42)
+                payload = request.call_args.args[1]
+                self.assertIs(payload["think"], False)
+                self.assertEqual(payload["model"], name)
+                self.assertEqual(payload["format"], "json")
+                self.assertEqual(result, {})
+
     def test_ministral_request_omits_thinking_option(self):
         answer = {"message": {"content": "{}"}}
         with patch("ouroboros.models.request_json", return_value=answer) as request:
