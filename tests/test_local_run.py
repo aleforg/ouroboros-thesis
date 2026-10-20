@@ -161,12 +161,26 @@ class LocalRunTests(unittest.TestCase):
                 self.assertIn(json.dumps({'seed': seed}), request.call_args.args[1]['prompt'])
                 self.assertEqual(request.call_args.args[1]['seed'], 0)
                 self.assertEqual(request.call_args.args[1]['batch_size'], 1)
+                self.assertEqual(request.call_args.args[1]['steps'], 16)
+                self.assertEqual(request.call_args.args[1]['cfg_scale'], 1.0)
+                self.assertEqual(request.call_args.args[1]['sampler_name'], 'Euler')
             process = target.process
             target.unload()
             process.terminate.assert_called_once()
             process.wait.assert_called_once()
         with self.assertRaises(ValueError):
             target.generate('<sd_cpp_extra_args>{}</sd_cpp_extra_args>', 1)
+
+    def test_flux3_schedule_and_local_preset(self):
+        from ouroboros.config import load_config
+        config = load_config(Path(__file__).resolve().parents[1] / 'configs/flux-local.json')
+        command = SDCppTarget(config).command(1234)
+        self.assertEqual(command[command.index('--flow-shift') + 1], '6.93')
+        self.assertIn('flux-3-image-klein', config.diffusion_weights)
+        self.assertIn('Qwen3-VL-4B-Instruct', config.encoder_weights)
+        self.assertEqual(config.backend, 'sdcpp')
+        self.assertTrue(config.group_by_phase)
+        self.assertEqual(config.steps, 16)
 
     def test_turbo_schedule_and_artifact_identity(self):
         config = self.config(target='qwen', qwen_turbo=True, steps=8)

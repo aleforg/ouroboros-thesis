@@ -22,12 +22,21 @@ Modificare i percorsi nei preset prima del pilot:
 
 | Preset | Generatore | Encoder | Passi |
 | --- | --- | --- | --- |
-| `configs/flux-local.json` | FLUX.2 Klein **4B distilled** GGUF Q4 | Qwen3-4B GGUF Q4 | 4 |
+| `configs/flux-local.json` | FLUX 3 Image Klein **5.6B distilled** GGUF Q4 | Qwen3-VL-4B-Instruct GGUF Q4 | 16 |
 | `configs/qwen-local.json` | Qwen-Image-2.1 GGUF Q4 | Qwen3-VL-8B GGUF Q4 | 40 |
 | `configs/qwen-turbo-local.json` | Qwen-Image-2.1 **Turbo** GGUF Q4 | Qwen3-VL-8B GGUF Q4 | 8 |
 
-I nomi `diffusion-q4.gguf`, `text-encoder-q4.gguf`, `vae.safetensors` sono
-segnaposto locali: sostituirli con i file effettivamente scaricati.
+I percorsi dei pesi nei JSON sono segnaposto locali: sostituirli con i file
+effettivamente scaricati. FLUX 3 usa una directory distinta `models/flux3/`,
+il checkpoint distilled (non Base), l'encoder Qwen3-VL-4B-Instruct e
+`ae.safetensors` di FLUX 3 (architettura VAE FLUX.2). I vecchi pesi del
+generatore e dell'encoder FLUX 2 Klein non sono compatibili.
+Serve una build sd.cpp che includa il supporto FLUX 3: aggiornare solo i
+pesi non basta. Il backend usa Euler, CFG 1 e flow shift 6.93.
+Come nel percorso Diffusers, il prompt viene passato invariato, senza
+upsampler, per conservare il protocollo dell'audit (vedi README).
+Il passaggio da 4 a 16 passi e al generatore 5.6B richiede un nuovo pilot:
+la compatibilità con RTX 3070 8 GB e RAM 16 GB non è ancora misurata.
 Su Windows impostare `sd_server` al percorso di `sd-server.exe` (nel JSON usare
 slash `/` oppure backslash raddoppiati). Usare il VAE originale corretto per
 ciascuna architettura, senza decoder sostitutivi. Per Qwen 2.1 non è valido il
@@ -37,7 +46,7 @@ binario, ma non può dedurre dal nome se il checkpoint sia realmente Turbo.
 
 Guide e pesi collegati dagli autori del runtime:
 
-- [FLUX.2 Klein](https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/flux2.md)
+- [FLUX 3 Image Klein](https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/flux3.md)
 - [Qwen-Image-2.1 e Turbo](https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/qwen_image_2.1.md)
 - [Prestazioni, Flash Attention e VAE tiling](https://github.com/leejet/stable-diffusion.cpp/blob/master/docs/performance.md)
 - [API server](https://github.com/leejet/stable-diffusion.cpp/blob/master/examples/server/api.md)

@@ -14,7 +14,7 @@
   "dtype": "bfloat16",
   "width": 1024,
   "height": 1024,
-  "steps": 4,
+  "steps": 16,
   "revision": "main",
   "sequential": true,
   "cpu_offload": true,

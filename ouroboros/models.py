@@ -120,6 +120,7 @@ class DiffusersTarget:
     def __init__(self, config):
         self.config = config
         self.pipe = None
+        self.components_manager = None
 
     def load(self):
         if self.pipe is not None:
@@ -128,16 +129,31 @@ class DiffusersTarget:
         import diffusers
 
         config = self.config
-        name = "Flux2KleinPipeline" if config.target == "flux" else "QwenImage21Pipeline"
+        name = "Flux3DistilledAutoBlocks" if config.target == "flux" else "QwenImage21Pipeline"
         if not hasattr(diffusers, name):
             raise RuntimeError(f"{name} assente: installare la versione recente di Diffusers indicata nel README")
         device = config.device
         if device == "auto":
             device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
-        self.pipe = getattr(diffusers, name).from_pretrained(
-            config.model_id, revision=config.revision, torch_dtype=getattr(torch, config.dtype))
+        if config.target == "flux":
+            blocks = getattr(diffusers, name)()
+            # L'upsampler riscriverebbe i prompt congelati dell'audit sul bias.
+            blocks.sub_blocks.pop("prompt_upsampler")
+            self.components_manager = diffusers.ComponentsManager()
+            self.pipe = diffusers.Flux3DistilledModularPipeline(
+                blocks=blocks, pretrained_model_name_or_path=config.model_id, revision=config.revision,
+                components_manager=self.components_manager)
+            revisions = {name: config.revision for name in self.pipe.components
+                         if self.pipe.get_component_spec(name).pretrained_model_name_or_path == config.model_id}
+            self.pipe.load_components(dtype=getattr(torch, config.dtype), revision=revisions)
+        else:
+            self.pipe = getattr(diffusers, name).from_pretrained(
+                config.model_id, revision=config.revision, torch_dtype=getattr(torch, config.dtype))
         if config.cpu_offload and device == "cuda":
-            self.pipe.enable_model_cpu_offload()
+            if self.components_manager is not None:
+                self.components_manager.enable_auto_cpu_offload(device=device)
+            else:
+                self.pipe.enable_model_cpu_offload()
         else:
             self.pipe.to(device)
         self.pipe.set_progress_bar_config(disable=True)
@@ -150,7 +166,10 @@ class DiffusersTarget:
                       num_inference_steps=self.config.steps,
                       generator=torch.Generator(device="cpu").manual_seed(seed))
         if self.config.target == "flux":
-            kwargs["guidance_scale"] = 1.0
+            images = self.pipe(**kwargs, output="images")
+            if not images:
+                raise RuntimeError("Il target non ha restituito immagini")
+            return images[0]
         result = self.pipe(**kwargs)
         flags = getattr(result, "nsfw_content_detected", None)
         if flags is not None and any(flags):
@@ -164,6 +183,9 @@ class DiffusersTarget:
             return
         import torch
 
+        if self.components_manager is not None:
+            self.components_manager.disable_auto_cpu_offload()
+            self.components_manager = None
         self.pipe = None
         gc.collect()
         if torch.cuda.is_available():

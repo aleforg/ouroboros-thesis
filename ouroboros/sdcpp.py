@@ -40,6 +40,8 @@ class SDCppTarget:
                    "--rng", "cpu", "--flash-attn", "on", "--vae-tiling"]
         if c.cpu_offload:
             command.append("--offload-to-cpu")
+        if c.target == "flux":
+            command.extend(["--flow-shift", "6.93"])
         if c.qwen_turbo:
             command.extend(["--sigmas", "qwen-image-2.1-turbo"])
         return command

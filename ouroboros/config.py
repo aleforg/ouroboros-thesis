@@ -25,7 +25,7 @@ class Config:
     dtype: str = "bfloat16"
     width: int = 1024
     height: int = 1024
-    steps: int = 4
+    steps: int = 16
     revision: str = "main"
     sequential: bool = True
     cpu_offload: bool = True
@@ -83,7 +83,7 @@ class Config:
     def model_id(self):
         if self.qwen_turbo:
             return "Qwen/Qwen-Image-2.1-Turbo"
-        return {"flux": "black-forest-labs/FLUX.2-klein-4B", "qwen": "Qwen/Qwen-Image-2.1"}[self.target]
+        return {"flux": "black-forest-labs/flux-3-image-klein", "qwen": "Qwen/Qwen-Image-2.1"}[self.target]
 
 
 def load_config(path):

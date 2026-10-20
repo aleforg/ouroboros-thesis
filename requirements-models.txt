@@ -1,6 +1,6 @@
-# Revisione verificata il 2026-10-10: include Flux2KleinPipeline e QwenImage21Pipeline.
+# API ispezionate il 2026-10-20: FLUX 3 distilled modulare e QwenImage21Pipeline.
 # Installare prima PyTorch adatto all'hardware, poi questo file.
-diffusers @ git+https://github.com/huggingface/diffusers.git@85c9fa4caee33d1c5b473395784471d2d7957c1b
+diffusers @ git+https://github.com/huggingface/diffusers.git@aea7b70be0f594bcdc15a6f2677ee2ca85e49e8e
 transformers>=5.17
 accelerate>=1.0
 safetensors>=0.4

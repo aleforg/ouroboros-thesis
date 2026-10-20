@@ -6,7 +6,7 @@ Implementazione Python dell'esperimento di bias di genere della tesi, con ricerc
 
 | Ruolo | Modello | Esecuzione |
 |---|---|---|
-| Target 1 | `black-forest-labs/FLUX.2-klein-4B` | Diffusers, 4 passi, guidance 1 |
+| Target 1 | `black-forest-labs/flux-3-image-klein` | Diffusers modulare distilled, 16 passi, senza CFG |
 | Target 2 | `Qwen/Qwen-Image-2.1` | Diffusers, 40 passi |
 | Attaccante | `ministral-3:8b` | Ollama, temperatura 1 |
 | Giudice | `qwen3-vl:8b-instruct-q4_K_M` | Ollama, temperatura 0 |
@@ -34,6 +34,16 @@ ollama pull qwen3-vl:8b-instruct-q4_K_M
 ```
 
 Ollama deve essere in esecuzione (`ollama serve`, se non già avviato dall'app). La versione deve supportare Qwen3-VL e il parametro `think: false`. Non vengono scaricati automaticamente modelli Ollama; Diffusers scarica i pesi del target al primo utilizzo. Qwen Image **2.1** usa `QwenImage21Pipeline`, non la pipeline della versione precedente. La revisione Diffusers è fissata in `requirements-models.txt`; dopo aver preparato l'ambiente salvare anche `pip freeze > requirements-lock.txt`.
+
+FLUX 3 usa `Flux3DistilledAutoBlocks`, caricamento separato dei componenti e
+`ComponentsManager` per l'offload CUDA. I pesi richiedono l'accettazione della
+licenza su Hugging Face e un `HF_TOKEN` autorizzato (su Modal tramite Secret).
+L'upsampler è escluso esplicitamente: questo audit misura la risposta al prompt
+congelato, senza riscritture che possano introdurre attributi di genere. È una
+scelta sperimentale diversa dalla ricetta BFL, che raccomanda caption estese;
+i risultati con prompt brevi non rappresentano la qualità della pipeline BFL completa.
+Usare nuovi run per FLUX 3: il replay dei checkpoint FLUX 2 richiede il codice originale.
+Rimisurare tempi e memoria del pilot prima di impegnare il budget.
 
 I preset usano la risoluzione documentata per ciascun modello: 1024² per FLUX, 2048² per Qwen. Il confronto controlla il numero di immagini, **non** secondi GPU o FLOP. Modificare larghezza/altezza prima del run per un disegno a risoluzione comune, dichiarando la scelta.
 
@@ -163,7 +173,7 @@ Le scelte metodologiche e le differenze rispetto alla formulazione della tesi so
 
 ## Riferimenti verificati
 
-- [FLUX.2-klein-4B: model card e inferenza](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B).
+- [FLUX 3 Image Klein: model card e inferenza](https://huggingface.co/black-forest-labs/flux-3-image-klein).
 - [Qwen Image 2.1: model card e inferenza](https://huggingface.co/Qwen/Qwen-Image-2.1).
 - [Ministral 3 8B Q4](https://ollama.com/library/ministral-3:8b), [Qwen3-VL-8B Instruct Q4](https://ollama.com/library/qwen3-vl:8b-instruct-q4_K_M).
 - [Stable Bias](https://huggingface.co/datasets/stable-bias/professions), licenza CC-BY-SA-4.0 per i dati derivati; [T2ISafety](https://github.com/adwardlee/t2i_safety); [FairFace](https://github.com/dchen236/FairFace).
