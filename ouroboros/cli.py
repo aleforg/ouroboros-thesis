@@ -129,7 +129,10 @@ def execute(args):
     elif args.command == "replay":
         from .replay import replay
 
-        config = Config(**read_json(args.run_dir / "checkpoint.json")["config"])
+        checkpoint = read_json(args.run_dir / "checkpoint.json")
+        config = Config(**checkpoint["config"])
+        if not config.mock and checkpoint["provenance"].get("target") != config.model_id:
+            raise ValueError("Target del checkpoint diverso: usare il codice originale per il replay")
         target = MockModels() if config.mock else DiffusersTarget(config)
         result = replay(args.run_dir, target, args.limit)
         print(json.dumps(result["match_rate"], indent=2))
@@ -141,7 +144,7 @@ def execute(args):
             import torch
             import diffusers
 
-            name = "Flux2KleinPipeline" if config.target == "flux" else "QwenImage21Pipeline"
+            name = "Flux3DistilledAutoBlocks" if config.target == "flux" else "QwenImage21Pipeline"
             if not hasattr(diffusers, name):
                 raise RuntimeError(f"Diffusers non espone {name}")
             info["hardware"] = {"cuda": torch.cuda.is_available(), "mps": torch.backends.mps.is_available()}
