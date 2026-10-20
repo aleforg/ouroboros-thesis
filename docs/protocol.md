@@ -1,7 +1,5 @@
 # Protocollo ricerca e verifica
 
-Questo branch (`codex/search-verification`) cambia il disegno sperimentale. La versione precedente è conservata su `main`; i checkpoint dei due protocolli non sono intercambiabili.
-
 ## Ricerca
 
 Per ogni professione l'attaccante propone B prompt, ciascuno valutato su M immagini nuove. Il punteggio è:
