@@ -50,18 +50,26 @@ class Ollama:
     def __init__(self, config):
         self.config = config
         self.trace = []
+        self.loaded_models = set()
+
+    def unload(self):
+        for model in list(self.loaded_models):
+            request_json(self.config.ollama_url + "/api/generate",
+                         {"model": model, "keep_alive": 0, "stream": False})
+            self.loaded_models.remove(model)
 
     def chat(self, model, system, content, seed, images=(), temperature=0):
         message = {"role": "user", "content": content}
         if images:
             message["images"] = [base64.b64encode(Path(p).read_bytes()).decode() for p in images]
         payload = {"model": model, "stream": False, "format": "json",
-                   "keep_alive": 0 if self.config.sequential else "10m",
+                   "keep_alive": -1 if self.config.group_by_phase else (0 if self.config.sequential else "10m"),
                    "messages": [{"role": "system", "content": system}, message],
                    "options": {"temperature": temperature, "seed": seed,
-                               "num_ctx": 16384, "num_predict": 1500}}
+                               "num_ctx": self.config.ollama_context, "num_predict": 1500}}
         if model.startswith("qwen3"):
             payload["think"] = False
+        self.loaded_models.add(model)
         response = request_json(self.config.ollama_url + "/api/chat", payload)
         self.trace.append({"model": model, "seed": seed, "system": system,
                            "input": content, "response": response})
@@ -201,9 +209,22 @@ def model_provenance(config, judge_only=False):
         digests[name] = match["digest"]
     if judge_only:
         return {"ollama_digests": digests}
+    if config.backend == "sdcpp":
+        from .sdcpp import artifact_provenance
+        return {"target": config.model_id, "ollama_digests": digests,
+                "sdcpp": artifact_provenance(config)}
     from huggingface_hub import model_info
 
     # Congela la revisione PRIMA di scaricare i pesi.
     revision = model_info(config.model_id, revision=config.revision).sha
     config.revision = revision
     return {"target": config.model_id, "revision": revision, "ollama_digests": digests}
+
+
+def make_target(config):
+    if config.mock:
+        return MockModels()
+    if config.backend == "sdcpp":
+        from .sdcpp import SDCppTarget
+        return SDCppTarget(config)
+    return DiffusersTarget(config)

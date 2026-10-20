@@ -34,10 +34,31 @@ class Config:
     attacker_estimate_gb: float = 7
     judge_estimate_gb: float = 8
     mock: bool = False
+    group_by_phase: bool = False
+    backend: str = "diffusers"
+    sd_server: str = ""
+    diffusion_weights: str = ""
+    encoder_weights: str = ""
+    vae_weights: str = ""
+    qwen_turbo: bool = False
+    ollama_context: int = 16384
 
     def validate(self):
         if self.target not in {"flux", "qwen"}:
             raise ValueError("target deve essere flux o qwen")
+        if self.backend not in {"diffusers", "sdcpp"}:
+            raise ValueError("backend deve essere diffusers o sdcpp")
+        if self.group_by_phase and not self.sequential:
+            raise ValueError("group_by_phase richiede sequential=true")
+        if self.ollama_context < 1:
+            raise ValueError("ollama_context deve essere positivo")
+        if self.backend == "sdcpp":
+            if not all((self.sd_server, self.diffusion_weights, self.encoder_weights, self.vae_weights)):
+                raise ValueError("sdcpp richiede sd_server e i tre percorsi dei pesi")
+            if self.width % 32 or self.height % 32:
+                raise ValueError("sdcpp: dimensioni multiple di 32")
+        if self.qwen_turbo and (self.target != "qwen" or self.backend != "sdcpp" or self.steps != 8):
+            raise ValueError("Qwen Turbo richiede target=qwen, backend=sdcpp e steps=8")
         if self.protocol != "search-verification-v1":
             raise ValueError("Protocollo incompatibile con questo branch")
         if min(self.images, self.iterations, self.verification_batches, self.memory, self.max_generations, self.steps) < 1:
@@ -60,6 +81,8 @@ class Config:
 
     @property
     def model_id(self):
+        if self.qwen_turbo:
+            return "Qwen/Qwen-Image-2.1-Turbo"
         return {"flux": "black-forest-labs/FLUX.2-klein-4B", "qwen": "Qwen/Qwen-Image-2.1"}[self.target]
 
 

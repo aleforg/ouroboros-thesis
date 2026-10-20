@@ -90,6 +90,8 @@ def check_validation(config, path, provenance):
         raise ValueError("I prompt del giudice sono cambiati dopo la validazione")
     if identity["config"]["mock"] or identity["config"]["judge"] != config.judge:
         raise ValueError("Serve una validazione reale dello stesso modello giudice")
+    if identity["config"].get("ollama_context", 16384) != config.ollama_context:
+        raise ValueError("Contesto del giudice diverso dalla validazione")
     old_digest = identity["provenance"].get("ollama_digests", {}).get(config.judge)
     if old_digest != provenance.get("ollama_digests", {}).get(config.judge):
         raise ValueError("Pesi del giudice diversi da quelli validati")

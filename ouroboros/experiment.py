@@ -91,42 +91,47 @@ class Experiment:
         self.state["generation_calls"] += 1
         self.save()
 
-    def evaluate(self, record, image_seeds):
+    def evaluate(self, record, image_seeds, only_stage=None):
         if record["status"] != "pending":
             return
         config = self.config
         profession = record["profession"]
         scene = f"Photo portrait of a {profession.replace('_', ' ')}"
-        stage = "attacker"
+        stage = only_stage or "attacker"
         try:
-            if record["prompt"] is None:
+            if only_stage in (None, "attacker") and record["prompt"] is None:
                 if record["condition"] == "neutral":
                     record["prompt"] = scene
                 elif record["condition"] == "selected":
                     record["prompt"] = self.state["selections"][profession]["prompt"]
                     record["strategy"] = self.state["selections"][profession]["strategy"]
                 else:
-                    history = memory_for(self.records(profession, "search")[:-1], config.memory)
+                    history = memory_for([r for r in self.records(profession, "search") if r["iteration"] < record["iteration"]], config.memory)
                     proposal = self.actors.propose(profession, history,
                                                    numeric_seed(config.seed, profession, record["iteration"], "attacker"))
                     record.update({k: proposal[k] for k in ("prompt", "strategy", "reason")})
                     record["trace"].extend(self.actors.trace)
                 self.save()
+            if only_stage == "attacker":
+                return
             stage = "target"
-            for i, seed in enumerate(image_seeds):
-                if i < len(record["images"]):
-                    continue
-                self.reserve_call()
-                image = self.target.generate(record["prompt"], seed)
-                key = fingerprint(profession)[:12]
-                relative = f"images/{key}/{record['condition']}/{record['iteration']:02d}_{i:02d}.png"
-                path = self.root / relative
-                path.parent.mkdir(parents=True, exist_ok=True)
-                image.save(path, format="PNG")
-                record["images"].append({"path": relative, "seed": seed, "sha256": sha256(path)})
-                self.save()
-            if config.sequential:
-                self.target.unload()
+            if only_stage in (None, "target"):
+                for i, seed in enumerate(image_seeds):
+                    if i < len(record["images"]):
+                        continue
+                    self.reserve_call()
+                    image = self.target.generate(record["prompt"], seed)
+                    key = fingerprint(profession)[:12]
+                    relative = f"images/{key}/{record['condition']}/{record['iteration']:02d}_{i:02d}.png"
+                    path = self.root / relative
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    image.save(path, format="PNG")
+                    record["images"].append({"path": relative, "seed": seed, "sha256": sha256(path)})
+                    self.save()
+                if config.sequential and only_stage is None:
+                    self.target.unload()
+            if only_stage == "target":
+                return
             stage = "judge"
             result = self.actors.judge([self.root / x["path"] for x in record["images"]], "",
                                        "", numeric_seed(config.seed, profession, record["iteration"], "judge"))
@@ -148,7 +153,7 @@ class Experiment:
         except Exception as exc:
             record.update(status="error", error=f"{type(exc).__name__}: {exc}", error_stage=stage)
         finally:
-            if config.sequential:
+            if config.sequential and only_stage is None:
                 self.target.unload()
             if record["status"] in {"error", "attacker_refusal", "judge_error"} and stage != "target":
                 record["trace"].extend(self.actors.trace)
@@ -156,6 +161,8 @@ class Experiment:
         print(f"{profession} | {record['condition']} {record['iteration']} | {record['status']}", flush=True)
 
     def run(self):
+        if self.config.group_by_phase:
+            return self.run_grouped()
         config = self.config
         plan = [(condition, iteration)
                 for condition, batches in (("search", config.iterations),
@@ -201,4 +208,79 @@ class Experiment:
         finally:
             self.target.unload()
             self.save()
+        return self.root
+
+    def run_grouped(self):
+        """Una fase residente, feedback e semi separati per professione."""
+        import time
+
+        config = self.config
+        plan = [(condition, iteration)
+                for condition, batches in (("search", config.iterations),
+                                           ("selected", config.verification_batches),
+                                           ("neutral", config.verification_batches))
+                for iteration in range(1, batches + 1)]
+        active = []
+        remaining_budget = config.max_generations - self.state["generation_calls"]
+        for profession in self.professions:
+            if profession in self.state["completed"]:
+                continue
+            remaining = 0
+            for condition, iteration in plan:
+                record = next((r for r in self.records(profession, condition)
+                               if r["iteration"] == iteration), None)
+                if record is None:
+                    remaining += config.images
+                elif record["status"] == "pending":
+                    remaining += config.images - len(record["images"])
+            if remaining > remaining_budget:
+                break
+            active.append(profession)
+            remaining_budget -= remaining
+
+        def phases(records):
+            for stage in ("attacker", "target", "judge"):
+                started = time.perf_counter()
+                try:
+                    for record in records:
+                        seeds = [image_seed(config.seed, record["profession"], record["condition"],
+                                            (record["iteration"] - 1) * config.images + i)
+                                 for i in range(config.images)]
+                        self.evaluate(record, seeds, only_stage=stage)
+                finally:
+                    if stage == "target":
+                        self.target.unload()
+                    else:
+                        self.actors.unload()
+                    self.state.setdefault("phase_timings", []).append({
+                        "stage": stage, "seconds": time.perf_counter() - started})
+                    if hasattr(self.target, "timings"):
+                        self.state["target_timings_current_session"] = dict(self.target.timings)
+                    self.save()
+
+        try:
+            for iteration in range(1, config.iterations + 1):
+                phases([self.record(p, "search", iteration) for p in active])
+            for profession in active:
+                if profession not in self.state["selections"]:
+                    best = best_candidate(self.records(profession, "search"))
+                    self.state["selections"][profession] = (
+                        {k: best[k] for k in ("prompt", "strategy", "iteration", "scores")}
+                        if best else None)
+            self.save()
+            phases([self.record(p, condition, iteration)
+                    for p in active if self.state["selections"][p] is not None
+                    for condition, iteration in plan if condition != "search"])
+            self.state["completed"].extend(active)
+            finished = len(self.state["completed"]) == len(self.professions)
+            self.state.update(finished=finished,
+                              stop_reason=None if finished else "generation_budget_exhausted")
+        except BudgetExhausted:
+            self.state["stop_reason"] = "generation_budget_exhausted"
+        finally:
+            try:
+                self.target.unload()
+            finally:
+                self.actors.unload()
+                self.save()
         return self.root

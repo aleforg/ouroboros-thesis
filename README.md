@@ -169,3 +169,10 @@ Le scelte metodologiche e le differenze rispetto alla formulazione della tesi so
 - [Stable Bias](https://huggingface.co/datasets/stable-bias/professions), licenza CC-BY-SA-4.0 per i dati derivati; [T2ISafety](https://github.com/adwardlee/t2i_safety); [FairFace](https://github.com/dchen236/FairFace).
 
 Le pipeline reali sono implementate sulla documentazione ufficiale, ma non sono state eseguite con i pesi in questa sessione. I test automatici e il percorso mock verificano la logica sperimentale, non l'accuratezza del giudice né i bias dei target.
+
+## Esecuzione locale con 8 GB di VRAM
+
+I preset `configs/flux-local.json`, `configs/qwen-local.json` e
+`configs/qwen-turbo-local.json` usano sd-server/GGUF e caricamento per fasi.
+Vedere [la guida locale](docs/local-run.md) per pesi, pilot di due professioni,
+misure e limiti. I file dei pesi e il binario CUDA vanno forniti sul laptop.

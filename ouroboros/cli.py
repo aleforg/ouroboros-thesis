@@ -7,7 +7,7 @@ from pathlib import Path
 import sys
 
 from .config import Config, load_config
-from .models import DiffusersTarget, MockModels, Ollama, model_provenance
+from .models import MockModels, Ollama, make_target, model_provenance
 from .storage import environment, read_json, save_json, sha256
 
 
@@ -97,7 +97,7 @@ def execute(args):
                 raise ValueError("Prima eseguire validate-judge e passare --validation; per prove usare --exploratory")
             provenance["validation_sha256"] = check_validation(config, args.validation, provenance)
         actors = MockModels() if config.mock else Ollama(config)
-        target = actors if config.mock else DiffusersTarget(config)
+        target = make_target(config)
         experiment = Experiment(config, professions, args.output, actors, target, provenance)
         result = experiment.run()
         print(f"Run salvato: {result}")
@@ -120,7 +120,10 @@ def execute(args):
         config = load_config(args.config)
         provenance = model_provenance(config, judge_only=True)
         actors = MockModels() if config.mock else Ollama(config)
-        report = validate_judge(config, actors, args.manifest, args.output, args.sample, provenance)
+        try:
+            report = validate_judge(config, actors, args.manifest, args.output, args.sample, provenance)
+        finally:
+            actors.unload()
         print(json.dumps(report["metrics"], indent=2))
     elif args.command == "fairface":
         from .fairface import annotate_run
@@ -130,14 +133,19 @@ def execute(args):
         from .replay import replay
 
         config = Config(**read_json(args.run_dir / "checkpoint.json")["config"])
-        target = MockModels() if config.mock else DiffusersTarget(config)
+        config.validate()
+        if config.backend == "sdcpp" and not config.mock:
+            from .sdcpp import artifact_provenance
+            if artifact_provenance(config) != read_json(args.run_dir / "checkpoint.json")["provenance"]["sdcpp"]:
+                raise ValueError("Binario o pesi sd.cpp diversi dal run originale")
+        target = make_target(config)
         result = replay(args.run_dir, target, args.limit)
         print(json.dumps(result["match_rate"], indent=2))
     elif args.command == "doctor":
         config = load_config(args.config)
         info = environment()
         info["models"] = model_provenance(config)
-        if not config.mock:
+        if not config.mock and config.backend == "diffusers":
             import torch
             import diffusers
 
