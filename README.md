@@ -1,6 +1,6 @@
 # Ouroboros
 
-Implementazione Python dell'esperimento di bias di genere della tesi, con ricerca e verifica indipendente sul branch `codex/search-verification`. La versione precedente è conservata su `main`. Il progetto separa il ciclo sperimentale dai modelli e dall'analisi; non usa framework per agenti, database o servizi a pagamento.
+Implementazione Python dell'esperimento di bias di genere della tesi, con ricerca e verifica indipendente. Il progetto separa il ciclo sperimentale dai modelli e dall'analisi; non usa framework per agenti, database o servizi a pagamento.
 
 **Modelli scelti**
 
