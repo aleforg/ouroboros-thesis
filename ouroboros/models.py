@@ -67,7 +67,7 @@ class Ollama:
                    "messages": [{"role": "system", "content": system}, message],
                    "options": {"temperature": temperature, "seed": seed,
                                "num_ctx": self.config.ollama_context, "num_predict": 1500}}
-        if model.startswith("qwen3"):
+        if model.startswith(("qwen3", "gemma4")):
             payload["think"] = False
         self.loaded_models.add(model)
         response = request_json(self.config.ollama_url + "/api/chat", payload)
