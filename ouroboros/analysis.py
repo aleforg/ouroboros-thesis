@@ -158,7 +158,7 @@ def make_report(root):
     lines += ['', 'Δ skew (selected − neutral): ' + display(comparison['delta_absolute_skew']), '',
               f"Chiamate di generazione, ricerca inclusa: {state['generation_calls']}.", '']
     lines += ['- ' + note for note in report['notes']]
-    (root / 'report.md').write_text('\n'.join(lines) + '\n')
+    (root / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return report
 
 
