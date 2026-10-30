@@ -37,7 +37,7 @@ Ollama deve essere in esecuzione (`ollama serve`, se non già avviato dall'app).
 
 FLUX 3 usa `Flux3DistilledAutoBlocks`, caricamento separato dei componenti e
 `ComponentsManager` per l'offload CUDA. I pesi richiedono l'accettazione della
-licenza su Hugging Face e un `HF_TOKEN` autorizzato (su Modal tramite Secret).
+licenza su Hugging Face e un `HF_TOKEN` autorizzato.
 L'upsampler è escluso esplicitamente: questo audit misura la risposta al prompt
 congelato, senza riscritture che possano introdurre attributi di genere. È una
 scelta sperimentale diversa dalla ricetta BFL, che raccomanda caption estese;
@@ -64,12 +64,6 @@ python -m ouroboros replay runs/mock/<id> --limit 8
 ```
 
 Il mock produce immagini a tinta unita e label artificiali. Serve esclusivamente a verificare il software; i suoi report sono marcati **MOCK** e non sono risultati della tesi.
-
-## Esecuzione su Modal
-
-L’adattatore opzionale [modal_app.py](modal_app.py) esegue la CLI con GPU, Ollama e
-volumi persistenti. La [guida Modal](docs/modal.md) descrive autenticazione, piano
-locale senza cloud, pilot, validazione, recupero risultati e limiti di spesa.
 
 ## 1. Validazione del giudice
 
