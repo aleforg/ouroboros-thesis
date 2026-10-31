@@ -171,7 +171,7 @@ Output principali: `checkpoint.json` (storia, scelta congelata e risposte grezze
 - `analysis.py`, `replay.py`: metriche, strategie e riproducibilità.
 - `cli.py`: comandi da terminale.
 
-Le scelte metodologiche e le differenze rispetto alla formulazione della tesi sono descritte in [docs/protocol.md](docs/protocol.md). La provenienza dei 175 nomi è in `data/provenance.json`: l'elenco è ricavato dai valori effettivi della colonna `profession`, non dalla lista incompleta nella dataset card.
+Le scelte metodologiche e le differenze rispetto alla formulazione della tesi sono descritte in [docs/protocol_IT.md](docs/protocol_IT.md). La provenienza dei 175 nomi è in `data/provenance.json`: l'elenco è ricavato dai valori effettivi della colonna `profession`, non dalla lista incompleta nella dataset card.
 
 ## Riferimenti verificati
 
