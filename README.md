@@ -1,22 +1,24 @@
 # Ouroboros
 
-Implementazione Python dell'esperimento di bias di genere della tesi, con ricerca e verifica indipendente. Il progetto separa il ciclo sperimentale dai modelli e dall'analisi; non usa framework per agenti, database o servizi a pagamento.
+[Versione italiana](README_IT.md)
 
-**Modelli scelti**
+Python implementation of the thesis gender bias experiment, with independent search and verification. The project separates the experimental loop from models and analysis; it uses no agent frameworks, databases, or paid services.
 
-| Ruolo | Modello | Esecuzione |
+**Selected models**
+
+| Role | Model | Execution |
 |---|---|---|
-| Target 1 | `black-forest-labs/flux-3-image-klein` | Diffusers modulare distilled, 16 passi, senza CFG |
-| Target 2 | `Qwen/Qwen-Image-2.1` | Diffusers, 40 passi |
-| Attaccante | `ministral-3:8b` | Ollama, temperatura 1 |
-| Giudice | `qwen3-vl:8b-instruct-q4_K_M` | Ollama, temperatura 0 |
-| Seconda misura | FairFace ResNet-34 | PyTorch + dlib, post hoc |
+| Target 1 | `black-forest-labs/flux-3-image-klein` | Distilled modular Diffusers, 16 steps, no CFG |
+| Target 2 | `Qwen/Qwen-Image-2.1` | Diffusers, 40 steps |
+| Attacker | `ministral-3:8b` | Ollama, temperature 1 |
+| Judge | `qwen3-vl:8b-instruct-q4_K_M` | Ollama, temperature 0 |
+| Secondary measurement | FairFace ResNet-34 | PyTorch + dlib, post hoc |
 
-L'attaccante usa Ministral 3 8B e il giudice Qwen3-VL 8B, appartenenti a famiglie diverse. L'adeguatezza va verificata nel pilot; una famiglia diversa non garantisce indipendenza degli errori. I nomi sono configurabili. L'attaccante riceve solo testo e feedback della ricerca.
+The attacker uses Ministral 3 8B and the judge uses Qwen3-VL 8B, which belong to different families. Their suitability must be checked in the pilot; using a different family does not guarantee independent errors. Model names are configurable. The attacker receives only text and search feedback.
 
-## Installazione
+## Installation
 
-Usare Python 3.11 o successivo, preferibilmente in un ambiente dedicato:
+Use Python 3.11 or later, preferably in a dedicated environment:
 
 ```bash
 python3 -m venv .venv
@@ -24,7 +26,7 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-Questo basta per test, mock e statistiche principali. Per l'inferenza installare PyTorch adatto alla propria GPU seguendo [le istruzioni ufficiali](https://pytorch.org/get-started/locally/), quindi:
+This is sufficient for tests, mocks, and core statistics. For inference, install PyTorch for your GPU following the [official instructions](https://pytorch.org/get-started/locally/), then:
 
 ```bash
 pip install -e '.[models]'
@@ -33,47 +35,47 @@ ollama pull ministral-3:8b
 ollama pull qwen3-vl:8b-instruct-q4_K_M
 ```
 
-Ollama deve essere in esecuzione (`ollama serve`, se non già avviato dall'app). La versione deve supportare Qwen3-VL e il parametro `think: false`. Non vengono scaricati automaticamente modelli Ollama; Diffusers scarica i pesi del target al primo utilizzo. Qwen Image **2.1** usa `QwenImage21Pipeline`, non la pipeline della versione precedente. La revisione Diffusers è fissata in `requirements-models.txt`; dopo aver preparato l'ambiente salvare anche `pip freeze > requirements-lock.txt`.
+Ollama must be running (`ollama serve`, if the app has not already started it). Its version must support Qwen3-VL and the `think: false` parameter. Ollama models are not downloaded automatically; Diffusers downloads the target weights on first use. Qwen Image **2.1** uses `QwenImage21Pipeline`, not the pipeline for the previous version. The Diffusers revision is pinned in `requirements-models.txt`; after preparing the environment, also save `pip freeze > requirements-lock.txt`.
 
-FLUX 3 usa `Flux3DistilledAutoBlocks`, caricamento separato dei componenti e
-`ComponentsManager` per l'offload CUDA. I pesi richiedono l'accettazione della
-licenza su Hugging Face e un `HF_TOKEN` autorizzato (su Modal tramite Secret).
-L'upsampler è escluso esplicitamente: questo audit misura la risposta al prompt
-congelato, senza riscritture che possano introdurre attributi di genere. È una
-scelta sperimentale diversa dalla ricetta BFL, che raccomanda caption estese;
-i risultati con prompt brevi non rappresentano la qualità della pipeline BFL completa.
-Usare nuovi run per FLUX 3: il replay dei checkpoint FLUX 2 richiede il codice originale.
-Rimisurare tempi e memoria del pilot prima di impegnare il budget.
+FLUX 3 uses `Flux3DistilledAutoBlocks`, separate component loading, and
+`ComponentsManager` for CUDA offloading. The weights require accepting the
+license on Hugging Face and an authorized `HF_TOKEN` (on Modal, through a Secret).
+The upsampler is explicitly excluded: this audit measures the response to the
+frozen prompt, without rewrites that could introduce gender attributes. This is
+an experimental choice that differs from the BFL recipe, which recommends extended captions;
+results with short prompts do not represent the quality of the full BFL pipeline.
+Use new runs for FLUX 3: replaying FLUX 2 checkpoints requires the original code.
+Measure pilot runtime and memory again before committing the budget.
 
-I preset usano la risoluzione documentata per ciascun modello: 1024² per FLUX, 2048² per Qwen. Il confronto controlla il numero di immagini, **non** secondi GPU o FLOP. Modificare larghezza/altezza prima del run per un disegno a risoluzione comune, dichiarando la scelta.
+The presets use the documented resolution for each model: 1024² for FLUX, 2048² for Qwen. The comparison controls the number of images, **not** GPU seconds or FLOPs. Change width/height before the run for a common-resolution design, and disclose that choice.
 
-`device: auto` seleziona CUDA, poi MPS, poi CPU. Su CUDA è attivo il CPU offload; su MPS il modello viene spostato sul device senza quel meccanismo. MPS e CPU sono percorsi implementati ma non verificati con i pesi reali in questa sessione. L'esecuzione sequenziale scarica i modelli fra le fasi: riduce il picco, aumenta i tempi di ricaricamento. Per un controllo statico impostare `available_memory_gb` e una stima conservativa `target_estimate_gb` nel JSON: non sono stime automatiche di VRAM e RAM. Con il valore predefinito 0 il controllo è disattivato.
+`device: auto` selects CUDA, then MPS, then CPU. CPU offloading is enabled on CUDA; on MPS, the model is moved to the device without that mechanism. MPS and CPU paths are implemented but have not been verified with real weights in this session. Sequential execution unloads models between phases: this reduces peak memory but increases reload time. For a static check, set `available_memory_gb` and a conservative `target_estimate_gb` in the JSON: these are not automatic VRAM and RAM estimates. The default value of 0 disables the check.
 
-## Verifica rapida senza GPU
+## Quick check without a GPU
 
 ```bash
 python -m unittest discover -s tests -v
 python -m ouroboros run --config configs/flux-test.json --mock --output runs/mock
 ```
 
-Il comando stampa la directory del run, per esempio `runs/mock/<id>`. Passare quel percorso ai comandi successivi:
+The command prints the run directory, for example `runs/mock/<id>`. Pass that path to subsequent commands:
 
 ```bash
 python -m ouroboros report runs/mock/<id>
 python -m ouroboros replay runs/mock/<id> --limit 8
 ```
 
-Il mock produce immagini a tinta unita e label artificiali. Serve esclusivamente a verificare il software; i suoi report sono marcati **MOCK** e non sono risultati della tesi.
+The mock produces solid-color images and artificial labels. It is only intended to verify the software; its reports are marked **MOCK** and are not thesis results.
 
-## Esecuzione su Modal
+## Running on Modal
 
-L’adattatore opzionale [modal_app.py](modal_app.py) esegue la CLI con GPU, Ollama e
-volumi persistenti. La [guida Modal](docs/modal.md) descrive autenticazione, piano
-locale senza cloud, pilot, validazione, recupero risultati e limiti di spesa.
+The optional [modal_app.py](modal_app.py) adapter runs the CLI with a GPU, Ollama, and
+persistent volumes. The [Modal guide](docs/modal.md) covers authentication, a
+local plan without cloud execution, the pilot, validation, result retrieval, and spending limits.
 
-## 1. Validazione del giudice
+## 1. Judge validation
 
-Scaricare dal [dataset ufficiale T2ISafety](https://huggingface.co/datasets/OpenSafetyLab/t2i_safety_dataset/tree/main) `hf_test_fairness_generated.json` e `test.zip`, quindi estrarre lo ZIP. Il test set comprende anche file per immagini reali; il preset seguente usa solo quelle generate. Non usare le caption come etichette e non miscelare train e test.
+Download `hf_test_fairness_generated.json` and `test.zip` from the [official T2ISafety dataset](https://huggingface.co/datasets/OpenSafetyLab/t2i_safety_dataset/tree/main), then extract the ZIP. The test set also includes files for real images; the following preset uses only generated images. Do not use captions as labels or mix training and test data.
 
 ```bash
 hf download OpenSafetyLab/t2i_safety_dataset \
@@ -90,13 +92,13 @@ python -m ouroboros validate-judge \
   --output runs/judge-validation.json
 ```
 
-`--image-root` deve contenere la cartella `evaluator_test` citata nelle annotazioni; se lo ZIP aggiunge una directory esterna, adeguare il percorso. L'importatore controlla ogni file. Legge solo le annotazioni `Gender`, `Age`, `Race` del dataset: nessuna annotazione viene inventata. Il campione è casuale e riproducibile, non stratificato; i sottogruppi piccoli vanno interpretati con cautela.
+`--image-root` must contain the `evaluator_test` folder referenced in the annotations; if the ZIP adds an outer directory, adjust the path. The importer checks every file. It reads only the dataset's `Gender`, `Age`, and `Race` annotations: no annotations are invented. The sample is random and reproducible, not stratified; small subgroups should be interpreted with caution.
 
-La validazione restituisce accuracy, Cohen's kappa, matrice di confusione, errori e accuracy per età/razza con bootstrap. È closed-set binaria, come il dataset; in produzione il giudice può usare `unclear`. Il file permette di riprendere il pilot senza ripetere le immagini già processate. Le classificazioni fallite rimangono errori visibili; per riprovare il pilot usare un nuovo output.
+Validation returns accuracy, Cohen's kappa, a confusion matrix, errors, and accuracy by age/race with bootstrapping. It is binary and closed-set, like the dataset; in production, the judge can use `unclear`. The file allows the pilot to resume without repeating images already processed. Failed classifications remain visible errors; use a new output to retry the pilot.
 
-Esaminare i risultati prima dell'esperimento. Il codice verifica che esista una validazione dello stesso digest del giudice, **non certifica automaticamente** che l'accuratezza sia sufficiente: la tesi non prescrive una soglia numerica. Un run senza pilot richiede `--exploratory` ed è registrato come preliminare.
+Examine the results before running the experiment. The code checks that a validation exists with the same judge digest; it **does not automatically certify** that accuracy is sufficient: the thesis does not prescribe a numerical threshold. A run without a pilot requires `--exploratory` and is recorded as preliminary.
 
-## 2. Esperimento appaiato
+## 2. Paired experiment
 
 ```bash
 python -m ouroboros doctor --config configs/flux-test.json
@@ -104,7 +106,7 @@ python -m ouroboros run --config configs/flux-test.json \
   --validation runs/judge-validation.json
 ```
 
-Dopo il test, usare i preset full per ciascun target:
+After testing, use the full presets for each target:
 
 ```bash
 python -m ouroboros run --config configs/flux-full.json \
@@ -113,31 +115,31 @@ python -m ouroboros run --config configs/qwen-full.json \
   --validation runs/judge-validation.json
 ```
 
-| Modalità | Professioni | Immagini/batch (M) | Ricerca (B) | Verifica per prompt (V) | Immagini totali/target |
+| Mode | Professions | Images/batch (M) | Search (B) | Verification per prompt (V) | Total images/target |
 |---|---:|---:|---:|---:|---:|
 | test | 10 | 2 | 5 | 5 | 300 |
-| full | 175 | 8 | 5 | 5 | 21.000 |
+| full | 175 | 8 | 5 | 5 | 21,000 |
 
-Per ogni professione:
+For each profession:
 
-1. La ricerca prova B prompt, senza arresto anticipato, guidata da `abs(n_female - n_male) / M`. Le immagini unclear restano nel denominatore.
-2. Si congela il prompt con punteggio maggiore; a parità vince il primo. Batch tutti unclear ed errori non possono vincere.
-3. Il prompt scelto e il prompt neutro generano ciascuno V*M immagini nuove, con semi appaiati tra condizioni e distinti dalla ricerca. Il giudice vede solo le immagini. Il feedback di verifica non torna all'attaccante.
-4. Il report aggrega tutte le immagini della verifica e confronta quota femminile, skew assoluto e coverage. Non usa il massimo dei batch o una soglia di successo.
+1. Search tests B prompts, without early stopping, guided by `abs(n_female - n_male) / M`. Unclear images remain in the denominator.
+2. The highest-scoring prompt is frozen; ties go to the first. Batches containing only unclear images and errors cannot win.
+3. The selected prompt and the neutral prompt each generate V*M new images, with seeds paired across conditions and distinct from search seeds. The judge sees only the images. Verification feedback is not returned to the attacker.
+4. The report aggregates all verification images and compares female share, absolute skew, and coverage. It does not use the maximum across batches or a success threshold.
 
-Nel JSON, `iterations` è B e `verification_batches` è V. `max_generations` limita le chiamate al target, incluse quelle interrotte o fallite. Il piano è `professioni * M * (B + 2*V)`: la ricerca è un costo aggiuntivo rispetto alla verifica appaiata. I valori full sono un punto di partenza da dimensionare con un pilot su GPU, non una garanzia di rientrare nel budget.
+In the JSON, `iterations` is B and `verification_batches` is V. `max_generations` limits target calls, including interrupted or failed calls. The plan is `professions * M * (B + 2*V)`: search is an additional cost on top of paired verification. The full values are a starting point to size using a GPU pilot, not a guarantee of staying within budget.
 
-Ripetere lo stesso comando riprende il checkpoint. La selezione viene salvata prima della verifica e non viene ricalcolata usando il holdout. La configurazione e i digest dei modelli identificano il run; gli hash del codice e delle immagini bloccano una ripresa incompatibile. Usare un solo processo per directory di run. Una chiamata interrotta è conteggiata anche se non salva un'immagine: prevedere margine nel tetto iniziale.
+Repeating the same command resumes the checkpoint. Selection is saved before verification and is not recalculated using the holdout. The configuration and model digests identify the run; code and image hashes block incompatible resumption. Use only one process per run directory. An interrupted call is counted even if it saves no image: allow headroom in the initial cap.
 
-Prima di iniziare una professione si verifica il budget per completare ricerca e verifica. Se manca, il run si ferma. Errori e rifiuti consumano lo slot; se nessun candidato è selezionabile si salta la verifica e lo si registra. Il confronto usa solo coppie complete e classificabili, esponendo tutte le esclusioni. I vecchi JSON con `quorum` o `baseline` non sono riutilizzabili: per quei run usare `main`.
+Before starting a profession, the budget is checked to ensure search and verification can be completed. If it is insufficient, the run stops. Errors and refusals consume a slot; if no candidate is eligible for selection, verification is skipped and this is recorded. The comparison uses only complete, classifiable pairs and exposes all exclusions. Old JSON files with `quorum` or `baseline` cannot be reused: use `main` for those runs.
 
-## 3. FairFace e report
+## 3. FairFace and reports
 
 ```bash
 pip install -e '.[fairface]'
 ```
 
-Scaricare dal [repository ufficiale FairFace](https://github.com/dchen236/FairFace) il checkpoint **7-race** `fairface_alldata_20191111.pt` e i due file dlib `mmod_human_face_detector.dat` e `shape_predictor_5_face_landmarks.dat` (decomprimerli se necessario). Non usare il checkpoint 4-race: le posizioni delle teste sono diverse. Per compilare dlib possono essere necessari CMake e un compilatore C++.
+Download the **7-race** checkpoint `fairface_alldata_20191111.pt` and the two dlib files `mmod_human_face_detector.dat` and `shape_predictor_5_face_landmarks.dat` from the [official FairFace repository](https://github.com/dchen236/FairFace) (decompress them if necessary). Do not use the 4-race checkpoint: the head positions differ. Building dlib may require CMake and a C++ compiler.
 
 ```bash
 python -m ouroboros fairface runs/<id> \
@@ -148,41 +150,41 @@ python -m ouroboros report runs/<id>
 python -m ouroboros replay runs/<id> --limit 8
 ```
 
-FairFace è applicato a tutte le immagini salvate, senza entrare nel feedback dell'attaccante. Classifica ogni volto con l'allineamento dlib; conserva il numero di volti e restituisce solo il genere percepito. Il kappa per immagine usa esattamente un volto; zero volti non viene convertito in `male`. I file dei pesi e delle immagini sono identificati da hash.
+FairFace is applied to all saved images without feeding into the attacker's feedback. It classifies each face using dlib alignment; it preserves the face count and returns only perceived gender. Per-image kappa uses exactly one face; zero faces are not converted to `male`. Weight and image files are identified by hashes.
 
-L'analisi opzionale delle strategie usa MiniLM + HDBSCAN:
+Optional strategy analysis uses MiniLM + HDBSCAN:
 
 ```bash
 pip install -e '.[analysis]'
 python -m ouroboros report runs/<id> --cluster-strategies
 ```
 
-Output principali: `checkpoint.json` (storia, scelta congelata e risposte grezze), `images/`, `report.md`, `report.json`, `per_profession.csv`; dopo i comandi specifici anche `fairface.json`, `strategies.json`, `replay.json`. I report contengono conteggi, quote e skew aggregati sulla verifica, differenze appaiate e bootstrap 95% sulle professioni. Le quote per professione includono IC Wilson. Le metriche non definite sono `null`; gli errori non diventano zeri. FairFace confronta solo immagini di verifica nel report.
+Main outputs: `checkpoint.json` (history, frozen selection, and raw responses), `images/`, `report.md`, `report.json`, `per_profession.csv`; after the corresponding commands, also `fairface.json`, `strategies.json`, and `replay.json`. Reports contain counts, shares, and skew aggregated over verification, paired differences, and 95% bootstrap intervals across professions. Per-profession shares include Wilson confidence intervals. Undefined metrics are `null`; errors do not become zeros. FairFace compares only verification images in the report.
 
-## Come leggere il codice
+## Navigating the code
 
-- `config.py`: parametri e identificazione del run.
-- `experiment.py`: il ciclo principale e la memoria.
-- `models.py`, `prompts.py`: accesso ai modelli e prompt versionati.
-- `storage.py`: checkpoint e hash.
-- `validation.py`, `fairface.py`: i due controlli del giudice.
-- `analysis.py`, `replay.py`: metriche, strategie e riproducibilità.
-- `cli.py`: comandi da terminale.
+- `config.py`: parameters and run identification.
+- `experiment.py`: the main loop and memory management.
+- `models.py`, `prompts.py`: model access and versioned prompts.
+- `storage.py`: checkpoints and hashes.
+- `validation.py`, `fairface.py`: the two judge checks.
+- `analysis.py`, `replay.py`: metrics, strategies, and reproducibility.
+- `cli.py`: terminal commands.
 
-Le scelte metodologiche e le differenze rispetto alla formulazione della tesi sono descritte in [docs/protocol.md](docs/protocol.md). La provenienza dei 175 nomi è in `data/provenance.json`: l'elenco è ricavato dai valori effettivi della colonna `profession`, non dalla lista incompleta nella dataset card.
+Methodological choices and differences from the thesis formulation are described in [docs/protocol.md](docs/protocol.md). The provenance of the 175 names is recorded in `data/provenance.json`: the list comes from the actual values of the `profession` column, not the incomplete list in the dataset card.
 
-## Riferimenti verificati
+## Verified references
 
-- [FLUX 3 Image Klein: model card e inferenza](https://huggingface.co/black-forest-labs/flux-3-image-klein).
-- [Qwen Image 2.1: model card e inferenza](https://huggingface.co/Qwen/Qwen-Image-2.1).
+- [FLUX 3 Image Klein: model card and inference](https://huggingface.co/black-forest-labs/flux-3-image-klein).
+- [Qwen Image 2.1: model card and inference](https://huggingface.co/Qwen/Qwen-Image-2.1).
 - [Ministral 3 8B Q4](https://ollama.com/library/ministral-3:8b), [Qwen3-VL-8B Instruct Q4](https://ollama.com/library/qwen3-vl:8b-instruct-q4_K_M).
-- [Stable Bias](https://huggingface.co/datasets/stable-bias/professions), licenza CC-BY-SA-4.0 per i dati derivati; [T2ISafety](https://github.com/adwardlee/t2i_safety); [FairFace](https://github.com/dchen236/FairFace).
+- [Stable Bias](https://huggingface.co/datasets/stable-bias/professions), CC-BY-SA-4.0 license for derived data; [T2ISafety](https://github.com/adwardlee/t2i_safety); [FairFace](https://github.com/dchen236/FairFace).
 
-Le pipeline reali sono implementate sulla documentazione ufficiale, ma non sono state eseguite con i pesi in questa sessione. I test automatici e il percorso mock verificano la logica sperimentale, non l'accuratezza del giudice né i bias dei target.
+The real pipelines are implemented based on the official documentation, but have not been run with weights in this session. Automated tests and the mock path verify the experimental logic, not the judge's accuracy or the targets' biases.
 
-## Esecuzione locale con 8 GB di VRAM
+## Running locally with 8 GB of VRAM
 
-I preset `configs/flux-local.json`, `configs/qwen-local.json` e
-`configs/qwen-turbo-local.json` usano sd-server/GGUF e caricamento per fasi.
-Vedere [la guida locale](docs/local-run.md) per pesi, pilot di due professioni,
-misure e limiti. I file dei pesi e il binario CUDA vanno forniti sul laptop.
+The `configs/flux-local.json`, `configs/qwen-local.json`, and
+`configs/qwen-turbo-local.json` presets use sd-server/GGUF and staged loading.
+See the [local guide](docs/local-run.md) for weights, a two-profession pilot,
+measurements, and limitations. Weight files and the CUDA binary must be supplied on the laptop.
