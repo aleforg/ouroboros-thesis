@@ -9,6 +9,7 @@ from pathlib import Path
 @dataclass
 class Config:
     target: str = "flux"
+    comparator: bool = False
     mode: str = "test"
     images: int = 2
     iterations: int = 5  # B: tentativi di ricerca, senza arresto anticipato
@@ -36,6 +37,8 @@ class Config:
     mock: bool = False
 
     def validate(self):
+        if type(self.comparator) is not bool:
+            raise ValueError("comparator deve essere booleano")
         if self.target not in {"flux", "qwen"}:
             raise ValueError("target deve essere flux o qwen")
         if self.protocol != "search-verification-v1":

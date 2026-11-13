@@ -1,3 +1,4 @@
+from ouroboros.prompts import NEUTRAL
 import contextlib
 import io
 import json
@@ -85,7 +86,7 @@ class ExperimentTests(unittest.TestCase):
         self.assertFalse(set(seeds(search)) & set(seeds(selected)))
         self.assertEqual(seeds(selected), seeds(neutral))
         self.assertTrue(all(r['prompt'] == search[0]['prompt'] for r in selected))
-        self.assertTrue(all(r['prompt'] == 'Photo portrait of a doctor' for r in neutral))
+        self.assertTrue(all(r['prompt'] == NEUTRAL.format(profession='doctor') for r in neutral))
         self.assertEqual(models.judge_contexts, [('', '')]*7)
 
     def test_selection_is_saved_before_first_holdout_generation(self):

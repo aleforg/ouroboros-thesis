@@ -5,6 +5,7 @@ from pathlib import Path
 
 from .config import experiment_id, fingerprint
 from .models import AttackerRefusal, JudgeError, TargetRefusal
+from .prompts import ATTACKER, COMPARATOR, JUDGE, NEUTRAL
 from .storage import environment, read_json, save_json, sha256, verify_images
 
 INFORMATIVE = {"judged"}
@@ -39,7 +40,7 @@ def numeric_seed(master, profession, iteration, purpose):
 def image_seed(master, profession, phase, index):
     # Due intervalli disgiunti; stessi semi per selected e neutral nella verifica.
     base = int(fingerprint([master, profession])[:8], 16) % 2**31
-    return (base + index) % 2**31 + (0 if phase == "search" else 2**31)
+    return (base + index) % 2**31 + (0 if phase in {"search", "control_search"} else 2**31)
 
 
 class BudgetExhausted(Exception):
@@ -51,7 +52,8 @@ class Experiment:
         config.validate()
         self.config, self.professions = config, professions
         self.actors, self.target = actors, target
-        self.provenance = provenance or {}
+        self.provenance = {**(provenance or {}),
+                           "experiment_prompts_sha256": fingerprint([ATTACKER, COMPARATOR, JUDGE, NEUTRAL])}
         identity = experiment_id(config, professions, self.provenance)
         self.root = Path(root) / identity
         self.path = self.root / "checkpoint.json"
@@ -63,7 +65,7 @@ class Experiment:
         else:
             self.state = {"id": identity, "config": asdict(config), "professions": professions,
                           "provenance": self.provenance, "environment": environment(),
-                          "records": [], "selections": {}, "completed": [], "generation_calls": 0,
+                          "records": [], "selections": {}, "control_selections": {}, "completed": [], "generation_calls": 0,
                           "finished": False, "stop_reason": None}
             self.save()
 
@@ -96,15 +98,22 @@ class Experiment:
             return
         config = self.config
         profession = record["profession"]
-        scene = f"Photo portrait of a {profession.replace('_', ' ')}"
+        scene = NEUTRAL.format(profession=profession.replace("_", " "))
         stage = "attacker"
         try:
             if record["prompt"] is None:
                 if record["condition"] == "neutral":
                     record["prompt"] = scene
-                elif record["condition"] == "selected":
-                    record["prompt"] = self.state["selections"][profession]["prompt"]
-                    record["strategy"] = self.state["selections"][profession]["strategy"]
+                elif record["condition"] in {"selected", "control"}:
+                    choices = "control_selections" if record["condition"] == "control" else "selections"
+                    record["prompt"] = self.state[choices][profession]["prompt"]
+                    record["strategy"] = self.state[choices][profession]["strategy"]
+                elif record["condition"] == "control_search":
+                    proposal = self.actors.propose(
+                        profession, [], numeric_seed(config.seed, profession, record["iteration"], "control"),
+                        adversarial=False)
+                    record.update({k: proposal[k] for k in ("prompt", "strategy", "reason")})
+                    record["trace"].extend(self.actors.trace)
                 else:
                     history = memory_for(self.records(profession, "search")[:-1], config.memory)
                     proposal = self.actors.propose(profession, history,
@@ -147,7 +156,11 @@ class Experiment:
             record.update(status="judge_error", error=str(exc))
         except Exception as exc:
             record.update(status="error", error=f"{type(exc).__name__}: {exc}", error_stage=stage)
+            if stage == "target" and "cuda" in str(exc).lower():
+                self.state.update(finished=False, stop_reason="cuda_error")
+                raise
         finally:
+            self.save()
             if config.sequential:
                 self.target.unload()
             if record["status"] in {"error", "attacker_refusal", "judge_error"} and stage != "target":
@@ -157,10 +170,16 @@ class Experiment:
 
     def run(self):
         config = self.config
-        plan = [(condition, iteration)
-                for condition, batches in (("search", config.iterations),
-                                           ("selected", config.verification_batches),
-                                           ("neutral", config.verification_batches))
+        if self.state.get("stop_reason") == "cuda_error":
+            raise RuntimeError("Run interrotto da CUDA: conservare il checkpoint e avviare un nuovo run")
+        phases = [("search", config.iterations)]
+        if config.comparator:
+            phases.append(("control_search", config.iterations))
+        phases.append(("selected", config.verification_batches))
+        if config.comparator:
+            phases.append(("control", config.verification_batches))
+        phases.append(("neutral", config.verification_batches))
+        plan = [(condition, iteration) for condition, batches in phases
                 for iteration in range(1, batches + 1)]
         try:
             for profession in self.professions:
@@ -179,16 +198,20 @@ class Experiment:
                 if self.state["generation_calls"] + remaining > config.max_generations:
                     raise BudgetExhausted
                 for condition, iteration in plan:
-                    if condition != "search":
-                        if profession not in self.state["selections"]:
-                            best = best_candidate(self.records(profession, "search"))
-                            self.state["selections"][profession] = (
-                                {k: best[k] for k in ("prompt", "strategy", "iteration", "scores")}
-                                if best else None)
-                            # Congelato PRIMA di generare qualunque immagine di verifica.
-                            self.save()
-                        if self.state["selections"][profession] is None:
+                    if condition not in {"search", "control_search"}:
+                        for search, choices in [("search", "selections")] + (
+                                [("control_search", "control_selections")] if config.comparator else []):
+                            if profession not in self.state[choices]:
+                                best = best_candidate(self.records(profession, search))
+                                self.state[choices][profession] = (
+                                    {k: best[k] for k in ("prompt", "strategy", "iteration", "scores")}
+                                    if best else None)
+                                self.save()
+                        if not config.comparator and self.state["selections"][profession] is None:
                             break
+                        choices = {"selected": "selections", "control": "control_selections"}.get(condition)
+                        if choices and self.state[choices][profession] is None:
+                            continue
                     seeds = [image_seed(config.seed, profession, condition,
                                         (iteration - 1) * config.images + i)
                              for i in range(config.images)]
@@ -199,6 +222,6 @@ class Experiment:
         except BudgetExhausted:
             self.state["stop_reason"] = "generation_budget_exhausted"
         finally:
-            self.target.unload()
             self.save()
+            self.target.unload()
         return self.root

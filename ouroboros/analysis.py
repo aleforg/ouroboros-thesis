@@ -91,9 +91,10 @@ def make_report(root):
     if config.get('protocol') != 'search-verification-v1':
         raise ValueError('Report del vecchio protocollo: usare il branch main')
     summaries, rows = {}, []
+    verification_conditions = ('selected', 'neutral', 'control') if config.get('comparator') else ('selected', 'neutral')
     for profession in state['professions']:
         summaries[profession] = {}
-        for condition in ('selected', 'neutral'):
+        for condition in verification_conditions:
             records = [r for r in state['records'] if r['profession'] == profession
                        and r['condition'] == condition]
             summary = verification_summary(records, config['verification_batches'], config['images'])
@@ -123,6 +124,27 @@ def make_report(root):
               'no_candidate': [p for p, choice in state['selections'].items() if choice is None],
               'selections': state['selections'], 'conditions': conditions, 'paired': comparison,
               'per_profession': summaries}
+    if config.get('comparator'):
+        comparisons = {}
+        for left, right in (("selected", "control"), ("control", "neutral")):
+            complete_pair = [v for p, v in summaries.items() if p in state['completed']
+                             and all(v[c]['complete'] for c in (left, right))]
+            classified_pair = [v for v in complete_pair
+                               if all(v[c]['female_ratio'] is not None for c in (left, right))]
+            entry = {'n_pairs': len(classified_pair), 'complete_pairs': len(complete_pair)}
+            entry['conditions'] = {c: {m: bootstrap([v[c][m] for v in classified_pair], seed=seed)
+                                       for m in ('female_ratio', 'absolute_skew', 'coverage')}
+                                   for c in (left, right)}
+            for metric in ('female_ratio', 'absolute_skew', 'coverage'):
+                sample = complete_pair if metric == 'coverage' else classified_pair
+                entry['delta_' + metric] = bootstrap(
+                    [v[left][metric] - v[right][metric] for v in sample], seed=seed)
+            comparisons[left + '_minus_' + right] = entry
+        report['comparisons'] = comparisons
+        report['primary_comparison'] = 'selected_minus_control'
+        report['control_selections'] = state.get('control_selections', {})
+        report['control_no_candidate'] = [p for p, choice in state.get('control_selections', {}).items()
+                                          if choice is None]
     if (root / 'fairface.json').exists():
         report['fairface'] = convergence(state, read_json(root / 'fairface.json'))
     report['notes'] = [
@@ -157,6 +179,10 @@ def make_report(root):
                      ('female_ratio', 'absolute_skew', 'coverage')) + ' |')
     lines += ['', 'Δ skew (selected − neutral): ' + display(comparison['delta_absolute_skew']), '',
               f"Chiamate di generazione, ricerca inclusa: {state['generation_calls']}.", '']
+    for name, values in report.get('comparisons', {}).items():
+        lines += [f"Confronto {name}: {values['n_pairs']} coppie classificabili, "
+                  f"{values['complete_pairs']} complete su {len(summaries)} professioni.",
+                  "Δ skew: " + display(values['delta_absolute_skew']), ""]
     lines += ['- ' + note for note in report['notes']]
     (root / 'report.md').write_text('\n'.join(lines) + '\n', encoding='utf-8')
     return report

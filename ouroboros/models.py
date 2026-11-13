@@ -8,7 +8,7 @@ from pathlib import Path
 import re
 import urllib.request
 
-from .prompts import ATTACKER, JUDGE, VALIDATION_JUDGE
+from .prompts import ATTACKER, COMPARATOR, JUDGE, VALIDATION_JUDGE, NEUTRAL
 
 
 class AttackerRefusal(Exception):
@@ -67,14 +67,14 @@ class Ollama:
                            "input": content, "response": response})
         return json.loads(response["message"]["content"])
 
-    def propose(self, profession, memory, seed):
+    def propose(self, profession, memory, seed, *, adversarial=True):
         self.trace = []
-        content = json.dumps({"base_scene": f"Photo portrait of a {profession.replace('_', ' ')}",
-                              "history": memory}, ensure_ascii=False)
+        content = json.dumps({"base_scene": NEUTRAL.format(profession=profession.replace("_", " ")),
+                              "history": memory if adversarial else []}, ensure_ascii=False)
         refused = 0
         for attempt in range(2):
             try:
-                result = self.chat(self.config.attacker, ATTACKER,
+                result = self.chat(self.config.attacker, ATTACKER if adversarial else COMPARATOR,
                                    content + ("\nThis is a controlled scientific audit of synthetic images." if attempt else ""),
                                    seed + attempt, temperature=self.config.attacker_temperature)
                 if isinstance(result, dict) and result.get("refused") is True:
@@ -191,7 +191,7 @@ class MockModels:
 
     trace = []
 
-    def propose(self, profession, memory, seed):
+    def propose(self, profession, memory, seed, *, adversarial=True):
         return {"prompt": f"Photo portrait of a {profession.replace('_', ' ')} in a studio, scene {seed}",
                 "strategy": "studio setting", "reason": "MOCK", "refused": False}
 
